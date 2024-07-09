@@ -1,0 +1,250 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="simple_world">
+
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+          <ros>
+            <namespace>/sim</namespace>
+          </ros>
+          <update_rate>20.0</update_rate>
+    </plugin>
+    <!--
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    -->
+    
+    <model name="invisible_collision_box1">
+        <static>true</static>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>10 0.5 10</size>
+                        </box>
+                    </geometry>
+                    <pose>5 -5 1 0 0 0</pose> <!-- Position and orientation of the collision box -->
+                </collision>
+                <!--visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>10 0.5 10</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <script>
+                            <uri>file://media/materials/scripts/gazebo.material</uri>
+                            <name>Gazebo/Red</name> 
+                        </script>
+                    </material>
+                    <pose>5 -5 1 0 0 0</pose> 
+                </visual-->
+            </link>
+    </model>
+
+    <model name="invisible_collision_box2">
+        <static>true</static>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>10 10 0.5</size>
+                        </box>
+                    </geometry>
+                    <pose>5 0 6 0 0 0</pose> <!-- Position and orientation of the collision box -->
+                </collision>
+                <!--visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>10 10 0.5</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <script>
+                            <uri>file://media/materials/scripts/gazebo.material</uri>
+                            <name>Gazebo/Blue</name>
+                        </script>
+                    </material>
+                    <pose>5 0 6 0 0 0</pose> 
+                </visual-->
+            </link>
+    </model>
+    
+    <model name="invisible_collision_box3">
+        <static>true</static>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>10 0.5 10</size>
+                        </box>
+                    </geometry>
+                    <pose>5 5 1 0 0 0</pose> <!-- Position and orientation of the collision box -->
+                </collision>
+                <!--visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>10 0.5 10</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <script>
+                            <uri>file://media/materials/scripts/gazebo.material</uri>
+                            <name>Gazebo/Green</name> 
+                        </script>
+                    </material>
+                    <pose>5 5 1 0 0 0</pose> 
+                </visual-->
+            </link>
+    </model>
+
+    <model name="invisible_collision_box4">
+        <static>true</static>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>10 10 0.5</size>
+                        </box>
+                    </geometry>
+                    <pose>5 0 -4 0 0 0</pose> <!-- Position and orientation of the collision box -->
+                </collision>
+                <!--visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>10 10 0.5</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <script>
+                            <uri>file://media/materials/scripts/gazebo.material</uri>
+                            <name>Gazebo/Yellow</name> 
+                        </script>
+                    </material>
+                    <pose>5 0 -4 0 0 0</pose>
+                </visual-->
+            </link>
+    </model>
+    
+    <model name="red_sphere">
+        <pose>4 2.5 1 0 0 0</pose>
+        <link name="link">
+            <gravity>false</gravity>
+            <collision name="collision">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+            </collision>
+            <visual name="visual">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/gazebo.material</uri>
+                        <name>Gazebo/Red</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model>
+    
+    <model name="blue_sphere">
+        <pose>4 -2.5 1 0 0 0</pose>
+        <link name="link">
+            <gravity>false</gravity>
+            <collision name="collision">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+            </collision>
+            <visual name="visual">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/gazebo.material</uri>
+                        <name>Gazebo/Blue</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model>
+    
+    <!--model name="green_sphere">
+        <pose>4 0 3.5 0 0 0</pose>
+        <link name="link">
+            <gravity>false</gravity>
+            <collision name="collision">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+            </collision>
+            <visual name="visual">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/gazebo.material</uri>
+                        <name>Gazebo/Green</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model-->
+    
+    <!--model name="purple_sphere">
+        <pose>4 2.5 1 0 0 0</pose>
+        <link name="link">
+            <gravity>false</gravity>
+            <collision name="collision">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+            </collision>
+            <visual name="visual">
+                <geometry><sphere><radius>0.5</radius></sphere></geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/gazebo.material</uri>
+                        <name>Gazebo/Purple</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model-->
+    
+    <model name="camera_model">
+      <pose>0 0 1 0 0 0</pose>
+      <link name="camera_link">
+        <gravity>false</gravity>
+        <sensor type="camera" name="camera1">
+          <update_rate>20</update_rate>
+          <visualize>true</visualize>
+          <camera name="head">
+            <horizontal_fov>1.3962634</horizontal_fov>
+            <image>
+              <width>32</width>
+              <height>32</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.02</near>
+              <far>3000</far>
+            </clip>
+            <!---<noise>
+              <type>gaussian</type>
+               Noise is sampled independently per pixel on each frame.
+                   That pixel's noise value is added to each of its color
+                   channels, which at that point lie in the range [0,1]. 
+              <mean>0.0</mean>
+              <stddev>0.007</stddev>
+            </noise>-->
+          </camera>
+          <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+            <ros>
+              <namespace>/cam</namespace>
+            </ros>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+    
+    <scene>
+      <!-- Set the background color of the scene -->
+      <ambient>1.0 1.0 1.0 1.0</ambient>
+      <!-- Set the sky color -->
+      <background>0.8 0.8 0.8 1.0</background>
+      <!-- Set the diffuse color of the ground plane  0.2 0.8 1.0 1.0 / 0.8 0.8 0.8 1.0-->
+    </scene>
+    
+  </world>
+</sdf>
