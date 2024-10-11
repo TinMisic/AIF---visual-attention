@@ -5,6 +5,8 @@ import aif_model.utils as utils
 import torch
 import numpy as np
 import cv2
+from ament_index_python.packages import get_package_share_directory
+import os
 
 class Agent:
     """
@@ -13,8 +15,8 @@ class Agent:
     def __init__(self):
 
         # Load networks
-        vae_path = c.vae_path
-        intentions_path = c.intentions_path
+        package_share_directory = get_package_share_directory(c.package_name)
+        vae_path = os.path.join(package_share_directory, 'resource', c.vae_path)
 
         self.vectors = np.zeros((2,2))
 
@@ -223,7 +225,9 @@ class Agent:
         Initialize belief
         """
         visual_state =self.vae.predict_latent(visual.squeeze()).detach().squeeze().numpy()
-        for f_name in c.focus_samples:
+
+        package_share_directory = get_package_share_directory(c.package_name)
+        for f_name in [os.path.join(package_share_directory, 'resource', x) for x in c.focus_samples]:
             focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
             self.focus_samples.append(focus_samples)
         self.mu[0] = np.concatenate((needs, prop, visual_state)) # initialize with beliefs about needs, proprioceptive and visual state

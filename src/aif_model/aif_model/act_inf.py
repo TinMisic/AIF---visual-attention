@@ -21,10 +21,8 @@ class Inference(Node):
     def __init__(self):
         super().__init__('active_inference')
         self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 10)
-        self.cam_orientation_subscriber = self.create_subscription(
-            Quaternion, '/actual_cam_orientation', self.cam_orientation_callback, 1)
-        self.image_subscriber = self.create_subscription(
-            Image,'cam/camera1/image_raw', self.image_callback, 1)
+        self.cam_orientation_subscriber = self.create_subscription(Quaternion, '/actual_cam_orientation', self.cam_orientation_callback, 1)
+        self.image_subscriber = self.create_subscription(Image,'cam/camera1/image_raw', self.image_callback, 1)
         self.needs_subscriber = self.create_subscription(Float32MultiArray, '/needs', self.needs_callback, 1)
         self.projections_subscriber = self.create_subscription(Float32MultiArray, '/object_projections', self.projections_callback, 1) # only for the purpose of logging
         self.bridge = CvBridge()
@@ -33,7 +31,7 @@ class Inference(Node):
         self.agent = Agent()
 
         # init sensory input
-        self.proprioceptive = np.zeros(2)
+        self.proprioceptive = np.zeros(c.prop_len)
         self.visual = np.zeros((1,c.channels,c.height,c.width))
         self.needs = np.ones((c.needs_len))
 
@@ -48,7 +46,7 @@ class Inference(Node):
         self.projections = np.zeros(4)
 
     def wait_data(self):
-        print("Waiting on data")
+        print("Waiting on data...")
         while not self.got_data.all()==True:
             rclpy.spin_once(self)
         self.agent.init_belief(self.needs,self.proprioceptive,self.visual)
@@ -73,9 +71,6 @@ class Inference(Node):
         try:
             # Convert ROS Image message to OpenCV image
             self.visual = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
-            # cv2.imshow("S",cv2.resize(self.visual, (0, 0), fx = 2, fy = 2))
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
             self.visual = torch.tensor(np.transpose(self.visual,(2,0,1))).unsqueeze(0)
 
             # scale to [0,1]
@@ -86,7 +81,6 @@ class Inference(Node):
 
     def publish_action(self, action):
         desired = self.proprioceptive + c.dt * action
-        # print("Going to", desired)
         q = euler_to_quaternion(0,np.deg2rad(desired[0]),np.deg2rad(desired[1]))
 
         msg = q
@@ -138,7 +132,6 @@ def main(args=None):
     rclpy.init(args=args)
     inf = Inference()
     inf.wait_data()
-    print("Done init")
     rclpy.spin(inf)
     inf.destroy_node()
     rclpy.shutdown()

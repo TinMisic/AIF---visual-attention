@@ -13,9 +13,9 @@ n_batch = 512
 beta = 2 # for betaVAE
 
 # Agent config
-vae_path = "/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/vae_state_dict.pt"
-intentions_path = "/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/intentions_state_dict.pt"
-focus_samples = ["/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/focus0.csv","/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/focus1.csv"]#,"/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/focus2.csv","/home/tin/FER/Diplomski/4.semestar/Diplomski rad/code/src/aif_model/resource/focus3.csv"]
+package_name = "aif_model"
+vae_path = "vae_state_dict.pt"
+focus_samples = ["focus0.csv","focus1.csv"]#,"focus2.csv","focus3.csv"]
 n_orders = 2 # orders of belief
 num_intentions = 2
 prop_len = 2 # size of proprioceptive belief

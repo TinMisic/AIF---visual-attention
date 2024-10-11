@@ -1,8 +1,11 @@
+"""Majority of code is by pi-tau on github: https://github.com/pi-tau/vae"""
+
 import torch
 import torch.nn as nn
 import aif_model.config as c
 
 class PositionalNorm(nn.LayerNorm):
+    # Author: pi-tau
     """PositionalNorm is a normalization layer used for 3D image inputs that
     normalizes exclusively across the channels dimension.
     https://arxiv.org/abs/1907.04312
@@ -19,6 +22,7 @@ class PositionalNorm(nn.LayerNorm):
 
 
 class ResBlock(nn.Module):
+    # Author: pi-tau
     """Residual block following the "bottleneck" architecture as described in
     https://arxiv.org/abs/1512.03385. See Figure 5.
     The residual blocks are defined following the "pre-activation" technique
@@ -107,6 +111,7 @@ class ResBlock(nn.Module):
 
 
 class Encoder(nn.Module):
+    # Author: pi-tau
     """Encoder network used for encoding the input space into a latent space.
     The encoder maps a vector(tensor) from the input space into a distribution
     over latent space. This distribution is assumed to be Normal and is
@@ -180,6 +185,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
+    # Author: pi-tau
     """Decoder network used for decoding the latent space back into the input
     space. The decoder maps a vector(tensor) from the latent space into a
     distribution over the input space. This distribution is assumed to be Normal
@@ -252,7 +258,6 @@ class Decoder(nn.Module):
         log_std = torch.zeros_like(mu)
         return mu, log_std
 
-#
 
 class FullyConnected(nn.Module):
     # Author: Tin M.

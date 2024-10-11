@@ -7,14 +7,14 @@ import torchvision
 import aif_model.config as c
 import cv2 as cv
 
-# Define image dataset class
 class ImageDataset(data.Dataset):
-    def __init__(self, images_root, orientation_path, size = 200000):
+    '''Image dataset class'''
+    def __init__(self, images_root, centroids_path, size = 200000):
         self.imgPaths = list(Path(images_root).rglob('img*.jpg'))
-        self.orientation = np.genfromtxt(orientation_path, delimiter=',')
+        self.centroids = np.genfromtxt(centroids_path, delimiter=',')
         length = min(size,len(self.imgPaths))
 
-        self.orientation = self.orientation[:length,:]
+        self.centroids = self.centroids[:length,:]
         self.imgPaths = self.imgPaths[:length]
 
     def __len__(self):
@@ -24,11 +24,10 @@ class ImageDataset(data.Dataset):
         sample = None
         with Image.open(self.imgPaths[i]) as img:
             try:
-                #img = img.resize((c.width,c.height))
+                # img = img.resize((c.width,c.height))
                 t = torchvision.transforms.functional.pil_to_tensor(img)
-                tMin = 0#torch.min(t)
-                tMax = 255#torch.max(t) - tMin
-                tMax = max(tMax, 1e-8)
+                tMin = 0
+                tMax = 255
                 t = (t - tMin) / (tMax) # Scaling to [0, 1]
                 sample=t
             except OSError:
@@ -36,14 +35,15 @@ class ImageDataset(data.Dataset):
             
         lat_rep = np.zeros((c.latent_size))
         # force latent representation
-        # lat_rep[0] = self.orientation[i][0]
-        # lat_rep[1] = self.orientation[i][1]
-        # lat_rep[2] = self.orientation[i][2]
+        lat_rep[0] = self.centroids[i][0]
+        lat_rep[1] = self.centroids[i][1]
+        lat_rep[2] = self.centroids[i][2]
 
         return sample, lat_rep
     
-# Define intention dataset class
 class IntentionDataset(data.Dataset):
+    '''Intention dataset class'''
+
     def __init__(self, data_path):
         datas = np.loadtxt(data_path, delimiter=',')
         X = datas[:, :5]  # features
@@ -58,8 +58,8 @@ class IntentionDataset(data.Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
     
-# Split dataset in train/test set and in batches
 def split_dataset(dataset, percent):
+    '''Split dataset in train/test set and in batches'''
     length = int(dataset.__len__()*percent)
     train_set, test_set = data.random_split(dataset, (length, dataset.__len__() - length))
     train_gen = data.DataLoader(train_set, batch_size=c.n_batch, shuffle=True, num_workers=4)
@@ -67,19 +67,17 @@ def split_dataset(dataset, percent):
 
     return train_gen, test_gen
 
-# Kullback–Leibler divergence
 def kl_divergence(p_m, p_v, q_m, log_q_v):
+    '''Kullback–Leibler divergence'''
     return torch.mean(0.5 * torch.sum(torch.log(p_v) - log_q_v + (log_q_v.exp() + (q_m - p_m) ** 2) / p_v - 1, dim=1), dim=0)
 
-# Shifts rows down by n rows
 def shift_rows(matrix, n):
+    '''Shifts rows down by n rows'''
     shifted_matrix = np.concatenate((matrix[-n:], matrix[:-n]), axis=0)
     return shifted_matrix
 
 def pixels_to_angles(coordinates):
-    """
-    Translates pixel coordinates into angles in radians
-    """
+    """Translates pixel coordinates into angles in radians"""
     f = c.width / (2 * np.tan(c.horizontal_fov/2))
     
     cent = (c.width/2, c.height/2) # get center point
@@ -93,23 +91,21 @@ def pixels_to_angles(coordinates):
 
     return np.vstack((pitch, yaw)).T # first pitch then yaw
 
-# Normalize angles
 def normalize(x):
+    '''Normalize angles'''
     return x / c.width * 2 - 1
 
-
-# Denormalize angles
 def denormalize(x):
+    '''Denormalize angles'''
     return (x + 1) / 2 * c.width
 
-# Gaussian noise
 def add_gaussian_noise(array):
+    '''Adds gaussian noise to given array'''
     sigma = c.noise ** 0.5
     return array + np.random.normal(0, sigma, np.shape(array))
 
-# display vectors on image
 def display_vectors(img, vectors):
-
+    '''Displays vectors on image'''
     h,w,c = img.shape
 
     red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
