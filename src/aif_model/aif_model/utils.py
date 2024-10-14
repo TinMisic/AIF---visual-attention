@@ -116,3 +116,16 @@ def display_vectors(img, vectors):
 
     return arrowed
 
+def show_SP(S, P, vectors):
+    f = 5
+    tmp_S = np.transpose(S[2].detach().squeeze().numpy(),(1,2,0))
+    tmp_S = cv.resize(tmp_S,(0,0),fx=f,fy=f)
+    tmp_P = np.transpose(P[2],(1,2,0))
+    tmp_P = cv.resize(tmp_P,(0,0),fx=f,fy=f)
+    tmp_P = display_vectors(tmp_P,(vectors-16)/32)
+    combined = np.concatenate((tmp_S,tmp_P), axis=1)
+    combined = cv.cvtColor(combined,cv.COLOR_RGB2BGR)
+    cv.imshow("S,P",combined)
+    cv.waitKey(1)
+    # cv2.destroyAllWindows()
+
