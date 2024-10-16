@@ -39,7 +39,6 @@ class Agent:
         self.E_i = np.zeros((c.num_intentions, belief_dim))
 
         self.alpha = np.array([1, 1, 1]) # needs, proprioceptive, visual [1, c.alpha, 1-c.alpha]
-        self.pi_s = np.array([c.pi_need,c.pi_prop,c.pi_vis])
 
         self.beta_index = 0
         weights = [] 
@@ -119,14 +118,20 @@ class Agent:
         return self.mu[1] - self.E_i
     
     def get_sensory_precisions(self, S):
-        return self.pi_s
+        # TODO: implement attention map
+        Pi = list()
+        Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
+        Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
+        Pi.append(np.ones((c.height,c.width)) * c.pi_need)
+
+        return Pi
     
-    def get_intention_precisions(self):
+    def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,:c.needs_len])
         self.beta = np.zeros((c.num_intentions,c.needs_len+c.prop_len+c.latent_size)); self.beta[self.beta_index] = self.beta_weights[self.beta_index]
         return self.beta
     
-    def get_likelihood(self, E_s, grad_v,Pi):
+    def get_likelihood(self, E_s, grad_v, Pi):
         """
         Get likelihood components
         """
@@ -135,16 +140,29 @@ class Agent:
 
         lkh['prop'] = self.alpha[1] * Pi[1] * E_s[1].dot(self.G_p.T)
 
-        lkh['vis'] = self.alpha[2] * Pi[2] * self.vae.get_grad(*grad_v, E_s[2])
+        lkh['vis'] = self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
         lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'])) 
 
         return lkh
     
-    def get_mu_dot(self, lkh, E_mu, Gamma):
+    def get_precision_derivatives_mu(self, Pi, Gamma):
+        # First order
+        dPi_dmu0 = 0 # TODO: Finish
+
+        dGamma_dmu0 = 0 # TODO: Finish
+
+        # Second order
+        dPi_dmu1 = 0 # TODO: Finish
+
+        dGamma_dmu1 = 0 # TODO: Finish
+
+        return dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1
+
+
+    def get_mu_dot(self, lkh, E_s, E_mu, Pi, Gamma):
         """
         Get belief update
         """
-        
         self.mu_dot = np.zeros_like(self.mu)
 
         # Intention components
@@ -152,8 +170,19 @@ class Agent:
         for g, e in zip(Gamma, np.array(E_mu)):
             forward_i += g * e
 
-        self.mu_dot[0] = self.mu[1] + lkh['prop'] + lkh['need'] + lkh['vis']
-        self.mu_dot[1] = -forward_i
+        dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1 = self.get_precision_derivatives_mu(Pi, Gamma)
+
+        generative = lkh['prop'] + lkh['need'] + lkh['vis']
+        backward = - c.k * forward_i
+
+        bottom_up0 = 0.5 * np.sum(1/Pi * dPi_dmu0, axis=0) - 0.5 * np.sum(E_s**2 * dPi_dmu0, axis=0)
+        top_down0 = 0.5 * np.sum(1/Gamma * dGamma_dmu0, axis=(0,1)) - 0.5 * np.sum(E_mu**2 * dGamma_dmu0, axis=(0,1))
+
+        bottom_up1 = 0.5 * np.sum(1/Pi * dPi_dmu1, axis=0)
+        top_down1 = 0.5 * np.sum(1/Gamma * dGamma_dmu1, axis=(0,1))
+
+        self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0
+        self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
 
     def get_a_dot(self, likelihood, Pi):
         """
@@ -161,25 +190,25 @@ class Agent:
         """
         e_prop = likelihood["prop"].dot(self.G_p)
 
-        lkh_vis= np.array(likelihood["vis"][c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions], dtype="float32")
-        lkh_vis = np.reshape(lkh_vis,(c.num_intentions,c.prop_len))
-        lkh_pix = utils.denormalize(lkh_vis)
-        lkh_ang = utils.pixels_to_angles(lkh_pix)
+        # lkh_vis= np.array(likelihood["vis"][c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions], dtype="float32")
+        # lkh_vis = np.reshape(lkh_vis,(c.num_intentions,c.prop_len))
+        # lkh_pix = utils.denormalize(lkh_vis)
+        # lkh_ang = utils.pixels_to_angles(lkh_pix)
 
         # index = np.argmax(np.linalg.norm(lkh_angles,axis=1))# max = biggest surprise; 
-        index = self.beta_index#np.argmax(self.beta) # from beta = most desired; 
+        # index = self.beta_index#np.argmax(self.beta) # from beta = most desired; 
         
-        lkh_angles = lkh_ang[index]
+        # lkh_angles = lkh_ang[index]
         # lkh_angles = lkh_angles[index]
         # old_lkh_angles = np.mean(old_lkh_ang,axis=0)# avg = average movement
 
-        d_mu_lkh_vis = c.dt * lkh_angles
+        # d_mu_lkh_vis = c.dt * lkh_angles
         d_mu_lkh_prop = -c.dt * e_prop
 
         # print("dmu_lkh_vis",d_mu_lkh_vis)
         # print("dmu_lkh_prop",d_mu_lkh_prop)
 
-        self.a_dot = d_mu_lkh_vis + d_mu_lkh_prop #c.alpha * d_mu_lkh_prop + (1 - c.alpha) * d_mu_lkh_vis
+        self.a_dot = d_mu_lkh_prop #c.alpha * d_mu_lkh_prop + (1 - c.alpha) * d_mu_lkh_vis
         print("a_dot",self.a_dot)
 
     def integrate(self):
@@ -249,13 +278,13 @@ class Agent:
         Pi = self.get_sensory_precisions(S)
 
         # Get intention precisions
-        Gamma = self.get_intention_precisions()
+        Gamma = self.get_intention_precisions(S)
 
         # Get likelihood components
         likelihood = self.get_likelihood(E_s, grad_v, Pi)
 
         # Get belief update
-        self.get_mu_dot(likelihood, E_mu, Gamma)
+        self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma)
 
         # Get action update
         self.get_a_dot(likelihood, Pi) # E_s[0] * self.pi_s[0] * self.alpha[0]
