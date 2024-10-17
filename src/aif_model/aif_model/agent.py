@@ -26,33 +26,33 @@ class Agent:
         decoder=networks.Decoder(out_chan=c.channels, latent_dim=c.latent_size))
         self.vae.load(vae_path)
 
-        belief_dim = c.needs_len + c.prop_len + c.latent_size # needs, proprioceptive belief, visual belief, visual intentions
+        self.belief_dim = c.needs_len + c.prop_len + c.latent_size # needs, proprioceptive belief, visual belief, visual intentions
 
         # Initialization of variables
-        self.mu = np.zeros((c.n_orders, belief_dim), dtype="float32") 
+        self.mu = np.zeros((c.n_orders, self.belief_dim), dtype="float32") 
         self.mu_dot = np.zeros_like(self.mu)
         self.focus_samples = []
 
         self.a = np.zeros(c.prop_len)
         self.a_dot = np.zeros_like(self.a)
 
-        self.E_i = np.zeros((c.num_intentions, belief_dim))
+        self.E_i = np.zeros((c.num_intentions, self.belief_dim))
 
         self.alpha = np.array([1, 1, 1]) # needs, proprioceptive, visual [1, c.alpha, 1-c.alpha]
 
         self.beta_index = 0
         weights = [] 
         for i in range(c.num_intentions):
-            builder = np.array([[1]*c.needs_len+[1]*c.prop_len+[1e-1]*c.latent_size])
+            builder = np.array([1]*c.needs_len+[1]*c.prop_len+[1e-1]*c.latent_size)
             weights.append(builder)
 
-        self.beta_weights = np.array(weights)
+        self.beta_weights = weights
         self.mode = "closest"
 
         # Generative models (simple)
-        self.G_p = utils.shift_rows(np.eye(belief_dim, c.prop_len),c.needs_len)
+        self.G_p = utils.shift_rows(np.eye(self.belief_dim, c.prop_len),c.needs_len)
 
-        self.G_n = np.eye(belief_dim, c.needs_len)
+        self.G_n = np.eye(self.belief_dim, c.needs_len)
 
     def get_p(self):
         """
@@ -128,7 +128,8 @@ class Agent:
     
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,:c.needs_len])
-        self.beta = np.zeros((c.num_intentions,c.needs_len+c.prop_len+c.latent_size)); self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        self.beta = [np.ones(c.needs_len+c.prop_len+c.latent_size)*1e-10] * c.num_intentions
+        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
         return self.beta
     
     def get_likelihood(self, E_s, grad_v, Pi):
@@ -140,24 +141,33 @@ class Agent:
 
         lkh['prop'] = self.alpha[1] * Pi[1] * E_s[1].dot(self.G_p.T)
 
-        lkh['vis'] = self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
+        lkh['vis'] = self.alpha[2] * c.pi_vis * self.vae.get_grad(*grad_v, E_s[2]) # self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
         lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'])) 
 
         return lkh
     
     def get_precision_derivatives_mu(self, Pi, Gamma):
         # First order
-        dPi_dmu0 = 0 # TODO: Finish
+        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish
 
-        dGamma_dmu0 = 0 # TODO: Finish
+        dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
 
         # Second order
-        dPi_dmu1 = 0 # TODO: Finish
+        dPi_dmu1 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish
 
-        dGamma_dmu1 = 0 # TODO: Finish
+        dGamma_dmu1 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
 
         return dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1
 
+
+    def attention(self, precision, derivative, error):
+        total = np.zeros(self.belief_dim)
+        for i in range(len(precision)):
+            component1 = 0.5 * np.sum(np.expand_dims(1/precision[i],axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            total += component1 + component2
+
+        return total
 
     def get_mu_dot(self, lkh, E_s, E_mu, Pi, Gamma):
         """
@@ -165,8 +175,11 @@ class Agent:
         """
         self.mu_dot = np.zeros_like(self.mu)
 
+        # Pad needs and proprioceptive error to size of mu
+        e_s = [np.concatenate([E_s[0],np.zeros(self.belief_dim - c.needs_len)]),np.concatenate([E_s[1],np.zeros(self.belief_dim - c.prop_len)]), torch.mean(E_s[2],dim=(0,1))]
+
         # Intention components
-        forward_i = np.zeros((c.needs_len + c.prop_len + c.latent_size)) 
+        forward_i = np.zeros((self.belief_dim)) 
         for g, e in zip(Gamma, np.array(E_mu)):
             forward_i += g * e
 
@@ -175,11 +188,11 @@ class Agent:
         generative = lkh['prop'] + lkh['need'] + lkh['vis']
         backward = - c.k * forward_i
 
-        bottom_up0 = 0.5 * np.sum(1/Pi * dPi_dmu0, axis=0) - 0.5 * np.sum(E_s**2 * dPi_dmu0, axis=0)
-        top_down0 = 0.5 * np.sum(1/Gamma * dGamma_dmu0, axis=(0,1)) - 0.5 * np.sum(E_mu**2 * dGamma_dmu0, axis=(0,1))
+        bottom_up0 = self.attention(Pi,dPi_dmu0,e_s)
+        top_down0 = self.attention(Gamma,dGamma_dmu0,E_mu)
 
-        bottom_up1 = 0.5 * np.sum(1/Pi * dPi_dmu1, axis=0)
-        top_down1 = 0.5 * np.sum(1/Gamma * dGamma_dmu1, axis=(0,1))
+        bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
+        top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
@@ -240,7 +253,8 @@ class Agent:
         print("mu initialized to:",self.mu[0])
 
         self.beta_index = np.argmax(needs)
-        self.beta = np.zeros((c.num_intentions,c.needs_len+c.prop_len+c.latent_size)); self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        self.beta = np.ones((c.num_intentions,c.needs_len+c.prop_len+c.latent_size))*1e-10
+        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
 
     def switch_mode(self, step):
