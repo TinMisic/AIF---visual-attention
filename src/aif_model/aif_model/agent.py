@@ -122,7 +122,7 @@ class Agent:
         Pi = list()
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(np.ones((c.height,c.width)) * c.pi_need)
+        Pi.append(np.ones((c.height,c.width)) * c.pi_vis)
 
         return Pi
     
@@ -141,7 +141,7 @@ class Agent:
 
         lkh['prop'] = self.alpha[1] * Pi[1] * E_s[1].dot(self.G_p.T)
 
-        lkh['vis'] = self.alpha[2] * c.pi_vis * self.vae.get_grad(*grad_v, E_s[2]) # self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
+        lkh['vis'] = self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
         lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'])) 
 
         return lkh
