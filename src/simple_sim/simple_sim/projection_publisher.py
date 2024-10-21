@@ -92,9 +92,7 @@ class ProjPublisher(Node):
         self.cam_position = np.array([position.x,position.y,position.z])
         self.cam_orientation = np.array([orientation.x,orientation.y,orientation.z,orientation.w])
         R = quaternion_rotation_matrix(self.cam_orientation)
-        
-        coordinates = np
-        
+                
         for i in range(len(names)):
             if not names[i].startswith("invisible") and names[i] != self.camera_name:
                 name = names[i]

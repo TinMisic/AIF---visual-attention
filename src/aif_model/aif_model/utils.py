@@ -129,3 +129,16 @@ def show_SP(S, P, vectors):
     cv.waitKey(1)
     # cv2.destroyAllWindows()
 
+def gaussian_2d(n, sigma):
+    # Create a grid of (x, y) coordinates
+    x = np.linspace(-1, 1, n)
+    y = np.linspace(-1, 1, n)
+    x, y = np.meshgrid(x, y)
+
+    # Compute the 2D Gaussian
+    gaussian_matrix = np.exp(-(x**2 + y**2) / (2 * sigma**2))
+
+    return gaussian_matrix
+
+def pi_foveate(original):
+    return gaussian_2d(c.width,0.75) * original

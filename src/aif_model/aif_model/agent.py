@@ -122,7 +122,7 @@ class Agent:
         Pi = list()
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(np.ones((c.height,c.width)) * c.pi_vis)
+        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis))
 
         return Pi
     
