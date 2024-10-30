@@ -24,9 +24,9 @@ k = 0.06
 alpha = 0.5
 pi_prop = 0.5
 pi_need = 0.5
-pi_vis = 6e-3
-dt = 0.4
-a_max = 2.0
+pi_vis = 7e-3
+dt = 0.4 # 0.4
+a_max = 10.0
 
 limits = [[90,90],[-90,-90]] # [[pitch min, yaw min],[pitch max, yaw max]]
 noise = 5e-5 # action noise

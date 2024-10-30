@@ -122,14 +122,14 @@ class Agent:
         Pi = list()
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis))
+        Pi.append(np.ones((c.height,c.width)) * c.pi_vis)
 
         return Pi
     
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,:c.needs_len])
         self.beta = [np.ones(c.needs_len+c.prop_len+c.latent_size)*1e-10] * c.num_intentions
-        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
         return self.beta
     
     def get_likelihood(self, E_s, grad_v, Pi):

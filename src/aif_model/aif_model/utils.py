@@ -142,3 +142,8 @@ def gaussian_2d(n, sigma):
 
 def pi_foveate(original):
     return gaussian_2d(c.width,0.75) * original
+
+def pi_presence(original, img):
+    m = max(img)
+    scaled = img/m
+    return original * scaled

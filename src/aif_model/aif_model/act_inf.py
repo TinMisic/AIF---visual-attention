@@ -121,7 +121,7 @@ class Inference(Node):
                 # cv2.imwrite("sensory.png",self.agent.tmp_S)
                 # cv2.imwrite("prediction.png",self.agent.tmp_P)
         else:
-            if self.counter%600 == 0:
+            if self.counter%50 == 0:
                 self.flag = False
 
         self.log()

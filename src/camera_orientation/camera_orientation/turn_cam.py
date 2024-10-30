@@ -66,7 +66,7 @@ class CamOrientationControl(Node):
         self.desired_position = Quaternion()
         self.current_position = Quaternion()
         self.moving = False
-        self.speed = 0.5 # rad/s
+        self.speed = 1 # 0.5 rad/s
 
     def calculate_direction(self):
         r1, p1, y1 = quaternion_to_euler(self.current_position)
