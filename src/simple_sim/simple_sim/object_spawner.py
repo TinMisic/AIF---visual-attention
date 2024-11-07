@@ -87,9 +87,9 @@ class ObjectSpawner(Node):
         self.steps = 16
         self.width = 3.0
         self.increment = self.width/self.steps 
-        row_t = 15
+        row_t = 5
         
-        obj_list = [("red","sphere",row_t),("blue","sphere",-row_t)]
+        obj_list = [("red","sphere",row_t)]#,("blue","sphere",-row_t)]
 
         for color, shape,t in obj_list:#product(CustomObject.colors, CustomObject.shapes):
             self.objects.append(CustomObject(self,shape,color,t))
@@ -108,9 +108,9 @@ class ObjectSpawner(Node):
         state.name = obj.name
 
         # position
-        state.pose.position.x = 4.0 #np.random.random(1)[0] * 3 + 1.5# [0.5, 4.5]
-        state.pose.position.y = np.sign(obj.t)*obj.direction * self.width/2 #- self.increment * int(((obj.step/obj.t)*self.steps**2%self.steps)) #np.random.random(1)[0] * 4 - 2 # [-2, 2] -self.direction * 3.0#
-        state.pose.position.z = 1.0 + np.sign(obj.t)*0.5#4.25 - self.increment * obj.step#int(((obj.step/obj.t)*self.steps**2//self.steps)) #np.random.random(1)[0] *2  # [1, 3]
+        state.pose.position.x = np.random.random(1)[0] * 3 + 1.5# [0.5, 4.5] # 4.0
+        state.pose.position.y = np.random.random(1)[0] * 4 - 2 #- self.increment * int(((obj.step/obj.t)*self.steps**2%self.steps)) #np.random.random(1)[0] * 4 - 2 # [-2, 2] -self.direction * 3.0# np.sign(obj.t)*obj.direction * self.width/2
+        state.pose.position.z = np.random.random(1)[0] *2#4.25 - self.increment * obj.step#int(((obj.step/obj.t)*self.steps**2//self.steps)) #np.random.random(1)[0] *2  # [1, 3] #1.0 + np.sign(obj.t)*0.5
 
         # orientation
         #q = np.random.randn(4)
@@ -121,10 +121,10 @@ class ObjectSpawner(Node):
         #state.pose.orientation.w = q[3]
 
         # linear velocity
-        #v = np.random.randn(3) * 0.5 #6.0/self.timer_period
-        #state.twist.linear.x = 0.0#v[0] # maybe leave at 0.0, to keep movement on plane yz
-        state.twist.linear.y = obj.direction* -self.width/obj.t#v[1] #self.direction * v
-        #state.twist.linear.z = v[2]
+        v = np.random.randn(3) * 0.5 #6.0/self.timer_period
+        state.twist.linear.x = 0.0#v[0] # maybe leave at 0.0, to keep movement on plane yz
+        state.twist.linear.y = v[1]#obj.direction* -self.width/obj.t#v[1] #self.direction * v
+        state.twist.linear.z = v[2]
 
         req = SetEntityState.Request()
         req._state = state

@@ -139,40 +139,38 @@ class Encoder(nn.Module):
 
             # Body.
             ResBlock(in_chan=32, out_chan=64, scale="downscale"), # 2x2
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),            
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),            
             
             ResBlock(in_chan=64, out_chan=128, scale="downscale"),   #16x16
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),            
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),            
             #ResBlock(in_chan=64, out_chan=64),
             
             ResBlock(in_chan=128, out_chan=256, scale="downscale"),   #8x8
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),            
-            #ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),            
 
             ResBlock(in_chan=256, out_chan=512, scale="downscale"),  # 4x4
-            ResBlock(in_chan=512, out_chan=512),
-            ResBlock(in_chan=512, out_chan=512),
-            ResBlock(in_chan=512, out_chan=512),
-            ResBlock(in_chan=512, out_chan=512),            
-            #ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=512, out_chan=512),
+            # ResBlock(in_chan=512, out_chan=512),
+            # ResBlock(in_chan=512, out_chan=512),
+            # ResBlock(in_chan=512, out_chan=512),            
 
             # Head.
             PositionalNorm(512),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1,1)),
             nn.Flatten(),
-            nn.Linear(512, 512),
+            nn.Linear(512, 64),
             nn.ReLU(),
-            nn.Linear(512, 2*latent_dim),
+            nn.Linear(64, 2*latent_dim),
         )
 
     def forward(self, x):
@@ -209,38 +207,38 @@ class Decoder(nn.Module):
         # responsible for up-sizing the image and reducing the channels.
         self.net = nn.Sequential(
             # Inverse head.
-            nn.Linear(latent_dim, 512),
+            nn.Linear(latent_dim, 64),
             nn.ReLU(),
-            nn.Linear(512, 512 * c.height//16 * c.width//16),
+            nn.Linear(64, 512 * c.height//16 * c.width//16),
             nn.Unflatten(dim=-1, unflattened_size=(512, c.height//16, c.width//16)),     # 8x8 #4x4
 
             # Body.
             ResBlock(in_chan=512, out_chan=256, scale="upscale"),   # 16x16 #8x8
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),
-            ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
+            # ResBlock(in_chan=256, out_chan=256),
 
             ResBlock(in_chan=256, out_chan=128, scale="upscale"),    # 32x32 #16x16
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
-            ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
+            # ResBlock(in_chan=128, out_chan=128),
 
             ResBlock(in_chan=128, out_chan=64, scale="upscale"),     # 64x64 #32x32
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),
-            ResBlock(in_chan=64, out_chan=64),         
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),
+            # ResBlock(in_chan=64, out_chan=64),         
             
             ResBlock(in_chan=64, out_chan=32, scale="upscale"),     # 64x64 #32x32
-            ResBlock(in_chan=32, out_chan=32),
-            ResBlock(in_chan=32, out_chan=32),
-            ResBlock(in_chan=32, out_chan=32),
-            ResBlock(in_chan=32, out_chan=32),
-            ResBlock(in_chan=32, out_chan=32),            
+            # ResBlock(in_chan=32, out_chan=32),
+            # ResBlock(in_chan=32, out_chan=32),
+            # ResBlock(in_chan=32, out_chan=32),
+            # ResBlock(in_chan=32, out_chan=32),
+            # ResBlock(in_chan=32, out_chan=32),            
 
             # Inverse stem.
             PositionalNorm(32),

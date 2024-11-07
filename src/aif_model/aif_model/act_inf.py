@@ -39,6 +39,7 @@ class Inference(Node):
         self.step = 1
         self.flag = True
         self.counter = 1
+        self.steps = 1
 
         now = datetime.datetime.now()
         formatted_time = now.strftime("%Y-%m-%d_%H-%M")
@@ -110,9 +111,7 @@ class Inference(Node):
         if self.flag==False:
             self.counter = 0
             inp = input("step "+str(self.step)+" continue>")
-            if inp=="1":
-                self.flag = True
-            elif inp=="i":
+            if inp=="i":
                 # save images
                 plt.imshow(self.agent.tmp_S)
                 plt.show()
@@ -120,8 +119,13 @@ class Inference(Node):
                 plt.show()
                 # cv2.imwrite("sensory.png",self.agent.tmp_S)
                 # cv2.imwrite("prediction.png",self.agent.tmp_P)
+            elif inp=="c":
+                self.flag = True
+            else:
+                self.steps = int(inp)
+                self.flag=True
         else:
-            if self.counter%50 == 0:
+            if self.counter%self.steps == 0:
                 self.flag = False
 
         self.log()

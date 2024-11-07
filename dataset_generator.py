@@ -33,7 +33,7 @@ with open(output_folder+"centroids.csv","w") as centr:
             #         blue_seen = 1 if (bi>=-2 and bj>=-2 and bi<=dim+2 and bj<=dim+2) else -1
             img = red.copy()
             img = cv.GaussianBlur(img, (5, 5), 0)
-            encoding = str(rj)+ "\t" + str(ri)+ "\t" + str(red_seen)+ "\n"#"\t" + str(bj)+ "\t" + str(bi)+ "\t" + str(blue_seen)+ "\n"
+            encoding = str(rj)+ "," + str(ri)+ "," + str(red_seen)+ "\n"#"\t" + str(bj)+ "\t" + str(bi)+ "\t" + str(blue_seen)+ "\n"
             print(encoding,end="")
             centr.write(encoding)
 

@@ -14,7 +14,7 @@ beta = 2 # for betaVAE
 
 # Agent config
 package_name = "aif_model"
-vae_path = "vae_state_dict.pt"
+vae_path = "vae-disentangled_state_dict_scaled.pt"
 focus_samples = ["focus0.csv","focus1.csv"]#,"focus2.csv","focus3.csv"]
 n_orders = 2 # orders of belief
 num_intentions = 2
@@ -24,7 +24,7 @@ k = 0.06
 alpha = 0.5
 pi_prop = 0.5
 pi_need = 0.5
-pi_vis = 7e-3
+pi_vis = 0.25
 dt = 0.4 # 0.4
 a_max = 10.0
 

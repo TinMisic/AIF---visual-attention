@@ -106,18 +106,20 @@ def add_gaussian_noise(array):
 
 def display_vectors(img, vectors):
     '''Displays vectors on image'''
-    h,w,c = img.shape
+    h,w,_ = img.shape
 
     red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
-    blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
+    if c.num_intentions == 2:
+        blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
 
     arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(150,0,0),2)
-    arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,150),2)
+    if c.num_intentions == 2:
+        arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,150),2)
 
     return arrowed
 
 def show_SP(S, P, vectors):
-    f = 5
+    f = 15
     tmp_S = np.transpose(S[2].detach().squeeze().numpy(),(1,2,0))
     tmp_S = cv.resize(tmp_S,(0,0),fx=f,fy=f)
     tmp_P = np.transpose(P[2],(1,2,0))

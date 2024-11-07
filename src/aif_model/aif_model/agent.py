@@ -90,7 +90,7 @@ class Agent:
         targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
         targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
         targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
-        # print("Target in pixels:",targets)
+        print("Target in pixels:",targets)
         self.vectors = np.array(targets)
         targets = utils.pixels_to_angles(targets) # convert to angles
 
@@ -122,7 +122,7 @@ class Agent:
         Pi = list()
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(np.ones((c.height,c.width)) * c.pi_vis)
+        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis))
 
         return Pi
     
@@ -275,6 +275,8 @@ class Agent:
             print("nan in mu",self.mu)
             print("S",S)
             raise Exception("nan in mu")
+        
+        print("mu:",self.mu[0])
         
         # Get predictions
         P, grad_v = self.get_p()
