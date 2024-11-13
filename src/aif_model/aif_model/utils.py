@@ -131,21 +131,25 @@ def show_SP(S, P, vectors):
     cv.waitKey(1)
     # cv2.destroyAllWindows()
 
-def gaussian_2d(n, sigma):
-    # Create a grid of (x, y) coordinates
+def gaussian_2d(n, center_x, center_y, sigma):
     x = np.linspace(-1, 1, n)
     y = np.linspace(-1, 1, n)
     x, y = np.meshgrid(x, y)
 
-    # Compute the 2D Gaussian
-    gaussian_matrix = np.exp(-(x**2 + y**2) / (2 * sigma**2))
+    gaussian_matrix = np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2))
 
     return gaussian_matrix
 
-def pi_foveate(original):
-    return gaussian_2d(c.width,0.75) * original
+def pi_foveate(original, mu):
+    return gaussian_2d(c.width, mu[c.needs_len+c.prop_len],mu[c.needs_len+c.prop_len+1], c.foveation_sigma) * original
 
 def pi_presence(original, img):
-    m = max(img)
-    scaled = img/m
-    return original * scaled
+    img = img.numpy() + 1e-10
+    # print(np.max(img, axis=(2,3)))
+    m = np.max(img[:,0,:,:]) # red channel
+    scaled = img[0,0,:,:]/m
+    # print(scaled.shape, original.shape)
+    result = original * scaled
+    # print(original.shape)
+    # print(result.shape)
+    return result

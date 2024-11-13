@@ -122,7 +122,7 @@ class Agent:
         Pi = list()
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
         Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis))
+        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis,self.mu[0]))
 
         return Pi
     
@@ -148,7 +148,8 @@ class Agent:
     
     def get_precision_derivatives_mu(self, Pi, Gamma):
         # First order
-        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish
+        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish np.zeros((c.height,c.width,self.belief_dim))
+        # dPi_dmu0[2][:,:,c.needs_len+c.prop_len:] = 1e-4
 
         dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
 
@@ -164,7 +165,9 @@ class Agent:
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
             component1 = 0.5 * np.sum(np.expand_dims(1/precision[i],axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            # print("c1", component1)
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            # print("c2", component2)
             total += component1 + component2
 
         return total
@@ -189,6 +192,7 @@ class Agent:
         backward = - c.k * forward_i
 
         bottom_up0 = self.attention(Pi,dPi_dmu0,e_s)
+        print("Bottom-up attn", bottom_up0)
         top_down0 = self.attention(Gamma,dGamma_dmu0,E_mu)
 
         bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
@@ -196,6 +200,7 @@ class Agent:
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
+        print("mu_dot0",self.mu_dot[0])
 
     def get_a_dot(self, likelihood, Pi):
         """
@@ -314,4 +319,4 @@ class Agent:
         # Start action
         self.switch_mode(step)
 
-        return self.a
+        return self.a, np.linalg.norm(likelihood["vis"]), np.linalg.norm(E_s[2])

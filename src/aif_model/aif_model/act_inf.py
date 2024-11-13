@@ -37,7 +37,7 @@ class Inference(Node):
 
         self.got_data = np.full((3),False)
         self.step = 1
-        self.flag = True
+        self.flag = False
         self.counter = 1
         self.steps = 1
 
@@ -45,6 +45,8 @@ class Inference(Node):
         formatted_time = now.strftime("%Y-%m-%d_%H-%M")
         self.log_name = f"act_inf_logs/log_{formatted_time}.csv"
         self.projections = np.zeros(4)
+        self.fe_log = []
+        self.err_log = []
 
     def wait_data(self):
         print("Waiting on data...")
@@ -102,9 +104,12 @@ class Inference(Node):
         # get sensory input
         S =  self.needs, self.proprioceptive, self.visual
 
-        action = self.agent.inference_step(S,self.step)
+        action, fe, err = self.agent.inference_step(S,self.step)
         action = utils.add_gaussian_noise(action)
         print("Action:",action)
+
+        self.fe_log.append(fe)
+        self.err_log.append(err)
 
         self.publish_action(action)
 
@@ -113,17 +118,24 @@ class Inference(Node):
             inp = input("step "+str(self.step)+" continue>")
             if inp=="i":
                 # save images
-                plt.imshow(self.agent.tmp_S)
-                plt.show()
-                plt.imshow(self.agent.tmp_P)
+                # plt.imshow(self.agent.tmp_S)
+                # plt.show()
+                # plt.imshow(self.agent.tmp_P)
+                # plt.show()
+                fe = np.array(self.fe_log)
+                err = np.array(self.err_log)
+                plt.title("Visual log_likelihood (- Free-Energy)")
+                plt.plot(fe/np.max(fe),label = "log likelihood") # /np.max(fe)
+                plt.plot(err/np.max(err),label = "error")
+                plt.legend()
                 plt.show()
                 # cv2.imwrite("sensory.png",self.agent.tmp_S)
                 # cv2.imwrite("prediction.png",self.agent.tmp_P)
             elif inp=="c":
                 self.flag = True
-            else:
-                self.steps = int(inp)
-                self.flag=True
+            elif inp=="s":
+                self.steps = int(input("Number of steps(int):"))
+                self.flag = True
         else:
             if self.counter%self.steps == 0:
                 self.flag = False
