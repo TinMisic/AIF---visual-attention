@@ -138,10 +138,25 @@ def gaussian_2d(n, center_x, center_y, sigma):
 
     gaussian_matrix = np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2))
 
-    return gaussian_matrix
+    x_deriv = gaussian_matrix * (x - center_x)/sigma**2
+    y_deriv = gaussian_matrix * (y - center_y)/sigma**2
+
+    return gaussian_matrix, x_deriv, y_deriv
 
 def pi_foveate(original, mu):
-    return gaussian_2d(c.width, mu[c.needs_len+c.prop_len],mu[c.needs_len+c.prop_len+1], c.foveation_sigma) * original
+
+    center_x_idx = c.needs_len+c.prop_len
+    center_y_idx = center_x_idx+1
+    gaussian, x_deriv, y_deriv = gaussian_2d(c.width, mu[center_x_idx],mu[center_y_idx], c.foveation_sigma)
+    pi = gaussian * original
+
+    derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size))
+    derivative[:,:,center_x_idx] = x_deriv
+    derivative[:,:,center_y_idx] = y_deriv
+
+    dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
+
+    return  pi, derivative, dPi_dmu1
 
 def pi_presence(original, img):
     img = img.numpy() + 1e-10

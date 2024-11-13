@@ -118,19 +118,33 @@ class Agent:
         return self.mu[1] - self.E_i
     
     def get_sensory_precisions(self, S):
-        # TODO: implement attention map
-        Pi = list()
-        Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need)
-        Pi.append(np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop)
-        Pi.append(utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis,self.mu[0]))
+        
+        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis,self.mu[0])
 
-        return Pi
+        Pi = [np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need,
+              np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop, 
+              pi_vis]
+        
+        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), 
+                    np.zeros((self.belief_dim,self.belief_dim)), 
+                    dPi_dmu0_vis]
+        
+        dPi_dmu1 = [np.zeros((self.belief_dim,self.belief_dim)), 
+                    np.zeros((self.belief_dim,self.belief_dim)), 
+                    dPi_dmu1_vis]
+
+        return Pi, dPi_dmu0, dPi_dmu1
     
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,:c.needs_len])
         self.beta = [np.ones(c.needs_len+c.prop_len+c.latent_size)*1e-10] * c.num_intentions
         # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
-        return self.beta
+
+        dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
+
+        dGamma_dmu1 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
+
+        return self.beta, dGamma_dmu0, dGamma_dmu1
     
     def get_likelihood(self, E_s, grad_v, Pi):
         """
@@ -145,34 +159,20 @@ class Agent:
         lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'])) 
 
         return lkh
-    
-    def get_precision_derivatives_mu(self, Pi, Gamma):
-        # First order
-        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish np.zeros((c.height,c.width,self.belief_dim))
-        # dPi_dmu0[2][:,:,c.needs_len+c.prop_len:] = 1e-4
-
-        dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
-
-        # Second order
-        dPi_dmu1 = [np.zeros((self.belief_dim,self.belief_dim)), np.zeros((self.belief_dim,self.belief_dim)), np.zeros((c.height,c.width,self.belief_dim))] # TODO: Finish
-
-        dGamma_dmu1 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
-
-        return dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1
 
 
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
             component1 = 0.5 * np.sum(np.expand_dims(1/precision[i],axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            # print("c1", component1)
+            print("c1", component1)
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            # print("c2", component2)
+            print("c2", component2)
             total += component1 + component2
 
         return total
 
-    def get_mu_dot(self, lkh, E_s, E_mu, Pi, Gamma):
+    def get_mu_dot(self, lkh, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1):
         """
         Get belief update
         """
@@ -185,8 +185,6 @@ class Agent:
         forward_i = np.zeros((self.belief_dim)) 
         for g, e in zip(Gamma, np.array(E_mu)):
             forward_i += g * e
-
-        dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1 = self.get_precision_derivatives_mu(Pi, Gamma)
 
         generative = lkh['prop'] + lkh['need'] + lkh['vis']
         backward = - c.k * forward_i
@@ -296,16 +294,16 @@ class Agent:
         E_mu = self.get_e_mu(I)
 
         # Get sensory precisions
-        Pi = self.get_sensory_precisions(S)
+        Pi, dPi_dmu0, dPi_dmu1 = self.get_sensory_precisions(S)
 
         # Get intention precisions
-        Gamma = self.get_intention_precisions(S)
+        Gamma, dGamma_dmu0, dGamma_dmu1 = self.get_intention_precisions(S)
 
         # Get likelihood components
         likelihood = self.get_likelihood(E_s, grad_v, Pi)
 
         # Get belief update
-        self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma)
+        self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1)
 
         # Get action update
         self.get_a_dot(likelihood, Pi) # E_s[0] * self.pi_s[0] * self.alpha[0]
