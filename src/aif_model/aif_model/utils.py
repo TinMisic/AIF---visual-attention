@@ -151,10 +151,18 @@ def pi_foveate(original, mu):
     pi = gaussian * original
 
     derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size))
-    derivative[:,:,center_x_idx] = x_deriv
-    derivative[:,:,center_y_idx] = y_deriv
+    derivative[:,:,center_x_idx] = x_deriv * original
+    derivative[:,:,center_y_idx] = y_deriv * original
 
     dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
+
+    print("pi", pi)
+    pi_deriv = (1/pi)*x_deriv*original
+    # print("(1/pi)*x_deriv", pi_deriv)
+    print("(1/pi)*x_deriv max", np.max(pi_deriv))
+    print("(1/pi)*x_deriv sum", np.sum(pi_deriv))
+    # print("deriv_y", y_deriv)
+
 
     return  pi, derivative, dPi_dmu1
 
