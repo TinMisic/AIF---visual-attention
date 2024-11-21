@@ -6,6 +6,7 @@ from PIL import Image
 import torchvision
 import aif_model.config as c
 import cv2 as cv
+import matplotlib.pyplot as plt
 
 class ImageDataset(data.Dataset):
     '''Image dataset class'''
@@ -136,7 +137,7 @@ def gaussian_2d(n, center_x, center_y, sigma):
     y = np.linspace(-1, 1, n)
     x, y = np.meshgrid(x, y)
 
-    gaussian_matrix = np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2))
+    gaussian_matrix =  1/(sigma * np.sqrt(2*np.pi)) * np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2))
 
     x_deriv = gaussian_matrix * (x - center_x)/sigma**2
     y_deriv = gaussian_matrix * (y - center_y)/sigma**2
@@ -156,15 +157,27 @@ def pi_foveate(original, mu):
 
     dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
 
-    print("pi", pi)
-    pi_deriv = (1/pi)*x_deriv*original
-    # print("(1/pi)*x_deriv", pi_deriv)
-    print("(1/pi)*x_deriv max", np.max(pi_deriv))
-    print("(1/pi)*x_deriv sum", np.sum(pi_deriv))
-    # print("deriv_y", y_deriv)
+    # # print("pi", pi)
+    print("mu", mu[center_x_idx],mu[center_y_idx])
+    pi_deriv_x = (1/pi)*x_deriv*original
+    pi_deriv_y = (1/pi)*y_deriv*original
+    # # print("(1/pi)*x_deriv", pi_deriv)
+    # print("(1/pi)*x_deriv max", np.max(pi_deriv_x))
+    print("(1/pi)*x_deriv sum", np.sum(pi_deriv_x))
+    print("(1/pi)*x_deriv mean", np.mean(pi_deriv_x))
+    # print("(1/pi)*y_deriv max", np.max(pi_deriv_y))
+    print("(1/pi)*y_deriv sum", np.sum(pi_deriv_y))
+    print("(1/pi)*y_deriv mean", np.mean(pi_deriv_y))
+    # plt.imshow(pi_deriv_x)
+    # plt.show()
+    # plt.imshow(pi_deriv_y)
+    # plt.show()
 
 
     return  pi, derivative, dPi_dmu1
+
+def pi_uniform(original, mu):
+    return original, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
 
 def pi_presence(original, img):
     img = img.numpy() + 1e-10
@@ -175,4 +188,4 @@ def pi_presence(original, img):
     result = original * scaled
     # print(original.shape)
     # print(result.shape)
-    return result
+    return result, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))

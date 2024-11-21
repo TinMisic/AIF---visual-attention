@@ -129,6 +129,9 @@ class Inference(Node):
                 plt.plot(err/np.max(err),label = "error")
                 plt.legend()
                 plt.show()
+
+                # np.savetxt("act_inf_logs/free_energy_presence.csv", fe, delimiter = ",")
+                # np.savetxt("act_inf_logs/error_presence.csv", err, delimiter = ",")
                 # cv2.imwrite("sensory.png",self.agent.tmp_S)
                 # cv2.imwrite("prediction.png",self.agent.tmp_P)
             elif inp=="c":

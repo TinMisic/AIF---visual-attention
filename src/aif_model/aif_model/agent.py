@@ -95,7 +95,7 @@ class Agent:
         targets = utils.pixels_to_angles(targets) # convert to angles
 
         targets_prop = targets + self.mu[0,c.needs_len:c.needs_len+c.prop_len] # add relative target angle to global camera angle
-        targets_vis = self.get_vis_intentions()
+        targets_vis = np.zeros((2,c.latent_size))#self.get_vis_intentions()
         targets_needs = np.tile(self.mu[0,:c.needs_len],(c.num_intentions,1))
 
         ending = np.tile(self.mu[0,c.needs_len+c.prop_len+c.latent_size:],(c.num_intentions,1)) # get ending of intention vectors from belief
@@ -119,7 +119,7 @@ class Agent:
     
     def get_sensory_precisions(self, S):
         
-        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis,self.mu[0])
+        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis, self.mu[0])
 
         Pi = [np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need,
               np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop, 
@@ -138,7 +138,7 @@ class Agent:
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,:c.needs_len])
         self.beta = [np.ones(c.needs_len+c.prop_len+c.latent_size)*1e-10] * c.num_intentions
-        # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
         dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
 
@@ -164,7 +164,7 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.5 * np.sum(np.expand_dims(1/precision[i],axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             print("c1", component1)
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             print("c2", component2)
