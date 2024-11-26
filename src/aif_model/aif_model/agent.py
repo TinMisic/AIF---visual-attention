@@ -95,7 +95,7 @@ class Agent:
         targets = utils.pixels_to_angles(targets) # convert to angles
 
         targets_prop = targets + self.mu[0,c.needs_len:c.needs_len+c.prop_len] # add relative target angle to global camera angle
-        targets_vis = np.zeros((2,c.latent_size))#self.get_vis_intentions()
+        targets_vis = self.get_vis_intentions()#np.zeros((2,c.latent_size))#
         targets_needs = np.tile(self.mu[0,:c.needs_len],(c.num_intentions,1))
 
         ending = np.tile(self.mu[0,c.needs_len+c.prop_len+c.latent_size:],(c.num_intentions,1)) # get ending of intention vectors from belief
@@ -146,6 +146,7 @@ class Agent:
 
         return self.beta, dGamma_dmu0, dGamma_dmu1
     
+    
     def get_likelihood(self, E_s, grad_v, Pi):
         """
         Get likelihood components
@@ -166,7 +167,7 @@ class Agent:
         for i in range(len(precision)):
             component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             print("c1", component1)
-            component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = -0.5 * np.mean(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             print("c2", component2)
             total += component1 + component2
 

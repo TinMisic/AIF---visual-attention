@@ -137,7 +137,7 @@ def gaussian_2d(n, center_x, center_y, sigma):
     y = np.linspace(-1, 1, n)
     x, y = np.meshgrid(x, y)
 
-    gaussian_matrix =  1/(sigma * np.sqrt(2*np.pi)) * np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2))
+    gaussian_matrix = 1/(sigma * np.sqrt(2*np.pi)) * np.exp(-((x - center_x)**2 + (y - center_y)**2) / (2 * sigma**2)) #1/(sigma * np.sqrt(2*np.pi)) *
 
     x_deriv = gaussian_matrix * (x - center_x)/sigma**2
     y_deriv = gaussian_matrix * (y - center_y)/sigma**2
@@ -148,7 +148,7 @@ def pi_foveate(original, mu):
 
     center_x_idx = c.needs_len+c.prop_len
     center_y_idx = center_x_idx+1
-    gaussian, x_deriv, y_deriv = gaussian_2d(c.width, mu[center_x_idx],mu[center_y_idx], c.foveation_sigma)
+    gaussian, x_deriv, y_deriv = gaussian_2d(c.width, mu[center_x_idx],mu[center_y_idx], c.foveation_sigma) #mu[center_x_idx],mu[center_y_idx]
     pi = gaussian * original
 
     derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size))
@@ -157,17 +157,17 @@ def pi_foveate(original, mu):
 
     dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
 
-    # # print("pi", pi)
-    print("mu", mu[center_x_idx],mu[center_y_idx])
-    pi_deriv_x = (1/pi)*x_deriv*original
-    pi_deriv_y = (1/pi)*y_deriv*original
+    # print("pi", pi)
+    # print("mu", mu[center_x_idx],mu[center_y_idx])
+    # pi_deriv_x = (1/pi)*x_deriv*original
+    # pi_deriv_y = (1/pi)*y_deriv*original
     # # print("(1/pi)*x_deriv", pi_deriv)
     # print("(1/pi)*x_deriv max", np.max(pi_deriv_x))
-    print("(1/pi)*x_deriv sum", np.sum(pi_deriv_x))
-    print("(1/pi)*x_deriv mean", np.mean(pi_deriv_x))
+    # print("(1/pi)*x_deriv sum", np.sum(pi_deriv_x))
+    # print("(1/pi)*x_deriv mean", np.mean(pi_deriv_x))
     # print("(1/pi)*y_deriv max", np.max(pi_deriv_y))
-    print("(1/pi)*y_deriv sum", np.sum(pi_deriv_y))
-    print("(1/pi)*y_deriv mean", np.mean(pi_deriv_y))
+    # print("(1/pi)*y_deriv sum", np.sum(pi_deriv_y))
+    # print("(1/pi)*y_deriv mean", np.mean(pi_deriv_y))
     # plt.imshow(pi_deriv_x)
     # plt.show()
     # plt.imshow(pi_deriv_y)
