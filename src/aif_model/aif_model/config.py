@@ -25,7 +25,7 @@ alpha = 0.5
 pi_prop = 0.5
 pi_need = 0.5
 pi_vis =  7e-3#7e-3
-foveation_sigma = 0.5
+foveation_sigma = 2
 dt = 0.4 # 0.4
 a_max = 10.0
 
