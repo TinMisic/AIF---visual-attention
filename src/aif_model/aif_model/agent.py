@@ -166,10 +166,11 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            print("c1", component1)
-            component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            print("c2", component2)
+            component1 = 0.01*0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = 100*(0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            if i==2:
+                print("c1", component1[4:6])
+                print("c2", component2[4:6])
             total += component1 + component2
 
         return total
@@ -192,15 +193,27 @@ class Agent:
         backward = - c.k * forward_i
 
         bottom_up0 = self.attention(Pi,dPi_dmu0,e_s)
-        print("Bottom-up attn", bottom_up0)
         top_down0 = self.attention(Gamma,dGamma_dmu0,E_mu)
 
         bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0
+        print("\nmu_dot[0]>")
+        print("self.mu[1]", self.mu[1][4:6], np.linalg.norm(self.mu[1]))
+        print("generative", generative[4:6], np.linalg.norm(generative))
+        # print("backward", backward[4:6], np.linalg.norm(backward))
+        print("bottom_up0", bottom_up0[4:6], np.linalg.norm(bottom_up0))
+        # print("top_down0", top_down0)
+
+        # print("\nmu_dot[1]>")
+        # print("-forward_i", -forward_i[4:6], np.linalg.norm(-forward_i))
+        # print("bottom_up1",bottom_up1)
+        # print("top_down1", top_down1)
+
+        self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
-        print("mu_dot0",self.mu_dot[0])
+        print("mu_dot0",self.mu_dot[0][4:6], np.linalg.norm(self.mu_dot[0]))
+
 
     def get_a_dot(self, likelihood, Pi):
         """
@@ -227,7 +240,7 @@ class Agent:
         # print("dmu_lkh_prop",d_mu_lkh_prop)
 
         self.a_dot = d_mu_lkh_prop #c.alpha * d_mu_lkh_prop + (1 - c.alpha) * d_mu_lkh_vis
-        print("a_dot",self.a_dot)
+        # print("a_dot",self.a_dot)
 
     def integrate(self):
         """
@@ -239,6 +252,7 @@ class Agent:
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
+        print("self.mu[0]",self.mu[0][4:])
 
         # Update action
         self.a += c.dt * self.a_dot

@@ -106,7 +106,7 @@ class Inference(Node):
 
         action, fe, err = self.agent.inference_step(S,self.step)
         action = utils.add_gaussian_noise(action)
-        print("Action:",action)
+        # print("Action:",action)
 
         self.fe_log.append(fe)
         self.err_log.append(err)
