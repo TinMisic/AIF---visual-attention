@@ -26,7 +26,7 @@ pi_prop = 0.5
 pi_need = 0.5
 pi_vis =  7e-3#7e-3
 foveation_sigma = 2
-dt = 0.4 # 0.4
+dt = 0.4 # 0.40
 a_max = 10.0
 
 limits = [[90,90],[-90,-90]] # [[pitch min, yaw min],[pitch max, yaw max]]
