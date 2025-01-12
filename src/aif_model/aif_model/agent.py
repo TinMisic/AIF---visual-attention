@@ -18,7 +18,7 @@ class Agent:
         package_share_directory = get_package_share_directory(c.package_name)
         vae_path = os.path.join(package_share_directory, 'resource', c.vae_path)
 
-        self.vectors = np.zeros((2,2)) # vectors of target locations from center
+        self.vectors = np.zeros((3,2)) # vectors of target locations from center, and focus point
 
         self.vae  = vae.VAE( # VAE network
         latent_dim=c.latent_size,
@@ -26,12 +26,12 @@ class Agent:
         decoder=networks.Decoder(out_chan=c.channels, latent_dim=c.latent_size))
         self.vae.load(vae_path)
 
-        self.belief_dim = c.needs_len + c.prop_len + c.latent_size # needs, proprioceptive belief, visual belief, visual intentions
+        self.belief_dim = c.needs_len + c.prop_len + c.latent_size + c.focus_len # needs, proprioceptive belief, visual belief, visual focus 
 
         # Initialization of variables
         self.mu = np.zeros((c.n_orders, self.belief_dim), dtype="float32") 
         self.mu_dot = np.zeros_like(self.mu)
-        self.focus_samples = []
+        # self.focus_samples = [] # TODO: remove
 
         self.a = np.zeros(c.prop_len)
         self.a_dot = np.zeros_like(self.a)
@@ -43,7 +43,7 @@ class Agent:
         self.beta_index = 0
         weights = [] 
         for i in range(c.num_intentions):
-            builder = np.array([1]*c.needs_len+[1]*c.prop_len+[1e-1]*c.latent_size)
+            builder = np.array([1]*c.needs_len+[1]*c.prop_len+[1e-1]*c.latent_size+[1]*c.focus_len)
             weights.append(builder)
 
         self.beta_weights = weights
@@ -69,7 +69,7 @@ class Agent:
 
         return P, [input_, output]
     
-    def get_vis_intentions(self):
+    def get_vis_intentions(self): #TODO: remove?
         targets_vis = []
         current_mu = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
         for i in range(c.num_intentions): 
@@ -114,31 +114,33 @@ class Agent:
         """
         Get dynamics prediction errors
         """
-        self.E_i = (I - self.mu[0]) * c.k * 1 # self.mode = 1 for now
+        self.E_i = (I - self.mu[0]) * c.k
 
         return self.mu[1] - self.E_i
     
     def get_sensory_precisions(self, S):
         
-        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)) * c.pi_vis, self.mu[0])
+        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)), self.mu[0])
 
-        Pi = [np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_need,
-              np.ones(c.needs_len+c.prop_len+c.latent_size) * c.pi_prop, 
+        dim = c.needs_len+c.prop_len+c.latent_size+c.focus_len
+
+        Pi = [np.ones(dim) * c.pi_need,
+              np.ones(dim) * c.pi_prop, 
               pi_vis]
         
-        dPi_dmu0 = [np.zeros((self.belief_dim,self.belief_dim)), 
-                    np.zeros((self.belief_dim,self.belief_dim)), 
+        dPi_dmu0 = [np.zeros((dim,dim)), 
+                    np.zeros((dim,dim)), 
                     dPi_dmu0_vis]
         
-        dPi_dmu1 = [np.zeros((self.belief_dim,self.belief_dim)), 
-                    np.zeros((self.belief_dim,self.belief_dim)), 
+        dPi_dmu1 = [np.zeros((dim,dim)), 
+                    np.zeros((dim,dim)), 
                     dPi_dmu1_vis]
 
         return Pi, dPi_dmu0, dPi_dmu1
     
     def get_intention_precisions(self, S):
-        self.beta_index = np.argmax(self.mu[0,:c.needs_len])
-        self.beta = [np.ones(c.needs_len+c.prop_len+c.latent_size)*1e-10] * c.num_intentions
+        self.beta_index = np.argmax(self.mu[0,2:c.needs_len])
+        self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
         dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
@@ -158,7 +160,7 @@ class Agent:
         lkh['prop'] = self.alpha[1] * Pi[1] * E_s[1].dot(self.G_p.T)
 
         lkh['vis'] = self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
-        lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'])) 
+        lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'],np.zeros(c.focus_len))) 
 
         return lkh
 
@@ -166,11 +168,11 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            component2 = (0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.01 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = 100 * (-0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             if i==2:
-                print("c1", component1[4:6])
-                print("c2", component2[4:6])
+                print("c1", component1)
+                print("c2", component2)
             total += component1 + component2
 
         return total
@@ -198,9 +200,10 @@ class Agent:
         bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
+        # TODO: edit print output for debug
         print("\nmu_dot[0]>")
         print("self.mu[1]", self.mu[1][4:6], np.linalg.norm(self.mu[1]))
-        print("generative", generative[4:6], np.linalg.norm(generative))
+        print("generative", generative[4:], np.linalg.norm(generative))
         # print("backward", backward[4:6], np.linalg.norm(backward))
         print("bottom_up0", bottom_up0[4:6], np.linalg.norm(bottom_up0))
         # print("top_down0", top_down0)
@@ -263,16 +266,17 @@ class Agent:
         Initialize belief
         """
         visual_state =self.vae.predict_latent(visual.squeeze()).detach().squeeze().numpy()
+        focus = np.array([c.pi_vis,0,0])
 
         package_share_directory = get_package_share_directory(c.package_name)
         for f_name in [os.path.join(package_share_directory, 'resource', x) for x in c.focus_samples]:
             focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
             self.focus_samples.append(focus_samples)
-        self.mu[0] = np.concatenate((needs, prop, visual_state)) # initialize with beliefs about needs, proprioceptive and visual state
+        self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
         print("mu initialized to:",self.mu[0])
 
         self.beta_index = np.argmax(needs)
-        self.beta = np.ones((c.num_intentions,c.needs_len+c.prop_len+c.latent_size))*1e-10
+        self.beta = np.ones((self.belief_dim))*1e-10
         self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
 

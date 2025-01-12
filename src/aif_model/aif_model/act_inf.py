@@ -139,6 +139,9 @@ class Inference(Node):
             elif inp=="s":
                 self.steps = int(input("Number of steps(int):"))
                 self.flag = True
+            elif inp=="p":
+                pi_vis = float(input("Set pi_vis(float):"))
+                c.set_pi_vis(pi_vis)
         else:
             if self.counter%self.steps == 0:
                 self.flag = False

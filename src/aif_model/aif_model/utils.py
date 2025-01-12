@@ -110,14 +110,15 @@ def display_vectors(img, vectors):
     h,w,_ = img.shape
 
     red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
-    if c.num_intentions == 2:
-        blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
+    blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
+    focus = (w//2 + int(vectors[2,0]*w/2),h//2+int(vectors[2,1]*h/2))
 
     arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(150,0,0),2)
-    if c.num_intentions == 2:
-        arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,150),2)
+    arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,150),2)
 
-    return arrowed
+    focused = cv.circle(arrowed.copy(), focus, 1, (0,255,0), -1)
+
+    return focused
 
 def show_SP(S, P, vectors):
     f = 15
@@ -146,16 +147,18 @@ def gaussian_2d(n, center_x, center_y, sigma):
 
 def pi_foveate(original, mu):
 
-    center_x_idx = c.needs_len+c.prop_len
-    center_y_idx = center_x_idx+1
+    amplitude_idx = c.needs_len+c.prop_len+c.latent_size
+    center_x_idx = amplitude_idx + 1
+    center_y_idx = amplitude_idx + 2
     gaussian, x_deriv, y_deriv = gaussian_2d(c.width, mu[center_x_idx],mu[center_y_idx], c.foveation_sigma) #mu[center_x_idx],mu[center_y_idx]
-    pi = gaussian * original
+    pi = mu[amplitude_idx] * gaussian * original
 
-    derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size))
+    derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
+    derivative[:,:,amplitude_idx] = gaussian * original
     derivative[:,:,center_x_idx] = x_deriv * original
     derivative[:,:,center_y_idx] = y_deriv * original
 
-    dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
+    dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
 
     # print("pi", pi)
     # print("mu", mu[center_x_idx],mu[center_y_idx])
