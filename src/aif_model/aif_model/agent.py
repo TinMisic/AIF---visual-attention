@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 from ament_index_python.packages import get_package_share_directory
 import os
+from scipy.special import softmax
 
 class Agent:
     """
@@ -69,38 +70,69 @@ class Agent:
 
         return P, [input_, output]
     
-    def get_vis_intentions(self): #TODO: remove?
-        targets_vis = []
-        current_mu = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
-        for i in range(c.num_intentions): 
-            if self.mode == "closest":# find closest focus sample for each intention
-                diff = np.linalg.norm((self.focus_samples[i]-current_mu),axis=1) # euclidean distance
-                closest = np.argmin(diff)
-                targets_vis.append(self.focus_samples[i][closest])
-                #print("Focus sample id for object "+str(i)+" is "+str(closest)+" , diff is",diff[closest])
-            elif self.mode == "mean":
-                targets_vis.append(np.mean(self.focus_samples[i],axis=0))
+    def get_prop_intentions(self):
+        targets = np.zeros((c.num_intentions,c.prop_len))
+        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # object visible in image
+            targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
+            targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
+            targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
+            print("Target in pixels:",targets)
+            self.vectors[:2,:] = np.array(targets)
+            targets = utils.pixels_to_angles(targets) # convert to angles
 
-        return np.array(targets_vis)
+        result = targets + self.mu[0,c.needs_len:c.needs_len+c.prop_len] # add relative target angle to global camera angle
+
+        return result
+    
+    def get_vis_intentions(self):
+        red_cue = self.mu[0,2]
+        red_exist = self.mu[0, c.needs_len+c.prop_len+c.prop_len]
+        sm = softmax((red_cue,red_exist))
+        
+        old = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+2]
+        cue = self.mu[0,:2]
+        ending = self.mu[0,c.needs_len+c.prop_len+2:c.needs_len+c.prop_len+c.latent_size]
+        mix = sm[0]*old + sm[1]*cue
+
+        result = np.zeros((2,c.latent_size))
+        result[0]=np.concatenate((mix,ending))
+
+        return result
+    
+    # def get_vis_intentions(self): 
+    #     targets_vis = []
+    #     current_mu = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
+    #     for i in range(c.num_intentions): 
+    #         if self.mode == "closest":# find closest focus sample for each intention
+    #             diff = np.linalg.norm((self.focus_samples[i]-current_mu),axis=1) # euclidean distance
+    #             closest = np.argmin(diff)
+    #             targets_vis.append(self.focus_samples[i][closest])
+    #             #print("Focus sample id for object "+str(i)+" is "+str(closest)+" , diff is",diff[closest])
+    #         elif self.mode == "mean":
+    #             targets_vis.append(np.mean(self.focus_samples[i],axis=0))
+
+    #     return np.array(targets_vis)
+
+    def get_focus_intentions(self):
+        result = np.zeros((c.num_intentions,c.focus_len))
+        result[:,1:] = self.mu[0,:2]
+
+        amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
+        result[:,0] = amp + 0.01*self.mu[0,2] - 0.001*amp #TODO: adjust factors
+
     
     def get_i(self):
         """
         Get intentions
         """
-        targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
-        targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
-        targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
-        print("Target in pixels:",targets)
-        self.vectors = np.array(targets)
-        targets = utils.pixels_to_angles(targets) # convert to angles
-
-        targets_prop = targets + self.mu[0,c.needs_len:c.needs_len+c.prop_len] # add relative target angle to global camera angle
-        targets_vis = np.zeros((2,c.latent_size))#self.get_vis_intentions()#
-        targets_vis[0]=self.mu[0,c.needs_len+c.prop_len:]
+        targets_prop = self.get_prop_intentions()
+        targets_vis = self.get_vis_intentions()
         targets_needs = np.tile(self.mu[0,:c.needs_len],(c.num_intentions,1))
+        targets_focus = self.get_focus_intentions()
 
         ending = np.tile(self.mu[0,c.needs_len+c.prop_len+c.latent_size:],(c.num_intentions,1)) # get ending of intention vectors from belief
-        targets = np.concatenate((targets_needs,targets_prop,targets_vis,ending),axis=1) # concatenate to get final matrix of shape NUM_INTENTIONS x (PROP_LEN + DESIRE_LEN + LATENT_SIZE)
+        print("ending for intentions:",ending)
+        targets = np.concatenate((targets_needs,targets_prop,targets_vis,targets_focus),axis=1) # concatenate to get final matrix of shape NUM_INTENTIONS x (PROP_LEN + DESIRE_LEN + LATENT_SIZE + FOCUS_LEN)
 
         return targets
     
@@ -143,9 +175,9 @@ class Agent:
         self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
-        dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
+        dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions 
 
-        dGamma_dmu1 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions # TODO: Finish
+        dGamma_dmu1 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions
 
         return self.beta, dGamma_dmu0, dGamma_dmu1
     
@@ -202,10 +234,10 @@ class Agent:
 
         # TODO: edit print output for debug
         print("\nmu_dot[0]>")
-        print("self.mu[1]", self.mu[1][4:6], np.linalg.norm(self.mu[1]))
-        print("generative", generative[4:], np.linalg.norm(generative))
+        print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
+        print("generative", generative, np.linalg.norm(generative))
         # print("backward", backward[4:6], np.linalg.norm(backward))
-        print("bottom_up0", bottom_up0[4:6], np.linalg.norm(bottom_up0))
+        print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
         # print("top_down0", top_down0)
 
         # print("\nmu_dot[1]>")
@@ -215,7 +247,7 @@ class Agent:
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
-        print("mu_dot0",self.mu_dot[0][4:6], np.linalg.norm(self.mu_dot[0]))
+        print("mu_dot0",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
 
 
     def get_a_dot(self, likelihood, Pi):
@@ -268,10 +300,10 @@ class Agent:
         visual_state =self.vae.predict_latent(visual.squeeze()).detach().squeeze().numpy()
         focus = np.array([c.pi_vis,0,0])
 
-        package_share_directory = get_package_share_directory(c.package_name)
-        for f_name in [os.path.join(package_share_directory, 'resource', x) for x in c.focus_samples]:
-            focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
-            self.focus_samples.append(focus_samples)
+        # package_share_directory = get_package_share_directory(c.package_name)
+        # for f_name in [os.path.join(package_share_directory, 'resource', x) for x in c.focus_samples]:
+        #     focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
+        #     self.focus_samples.append(focus_samples)
         self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
         print("mu initialized to:",self.mu[0])
 
