@@ -72,15 +72,17 @@ class Agent:
     
     def get_prop_intentions(self):
         targets = np.zeros((c.num_intentions,c.prop_len))
-        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # object visible in image
-            targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
-            targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
-            targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
-            print("Target in pixels:",targets)
-            self.vectors[:2,:] = np.array(targets)
-            targets = utils.pixels_to_angles(targets) # convert to angles
+        
+        targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
+        targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
+        targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
+        print("Target in pixels:",targets)
+        self.vectors[:2,:] = np.array(utils.normalize(targets))
+        targets = utils.pixels_to_angles(targets) # convert to angles
 
-        result = targets + self.mu[0,c.needs_len:c.needs_len+c.prop_len] # add relative target angle to global camera angle
+        result = np.zeros_like(targets) + self.mu[0,c.needs_len:c.needs_len+c.prop_len]
+        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
+            result += targets # add relative target angle to global camera angle
 
         return result
     
@@ -115,10 +117,16 @@ class Agent:
 
     def get_focus_intentions(self):
         result = np.zeros((c.num_intentions,c.focus_len))
-        result[:,1:] = self.mu[0,:2]
+        result[:,1:] = self.mu[0,-2:] # previous focus belief
+        if self.mu[0,2]>0:
+            result[:,1:] = self.mu[0,:2]
+
+        self.vectors[2,:] = result[0,1:]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
         result[:,0] = amp + 0.01*self.mu[0,2] - 0.001*amp #TODO: adjust factors
+
+        return result
 
     
     def get_i(self):
@@ -130,9 +138,7 @@ class Agent:
         targets_needs = np.tile(self.mu[0,:c.needs_len],(c.num_intentions,1))
         targets_focus = self.get_focus_intentions()
 
-        ending = np.tile(self.mu[0,c.needs_len+c.prop_len+c.latent_size:],(c.num_intentions,1)) # get ending of intention vectors from belief
-        print("ending for intentions:",ending)
-        targets = np.concatenate((targets_needs,targets_prop,targets_vis,targets_focus),axis=1) # concatenate to get final matrix of shape NUM_INTENTIONS x (PROP_LEN + DESIRE_LEN + LATENT_SIZE + FOCUS_LEN)
+        targets = np.concatenate((targets_needs,targets_prop,targets_vis,targets_focus),axis=1) # concatenate to get final matrix of shape NUM_INTENTIONS x (NEEDS_LEN + PROP_LEN + LATENT_SIZE + FOCUS_LEN)
 
         return targets
     
@@ -173,7 +179,7 @@ class Agent:
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,2:c.needs_len])
         self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
-        # self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
         dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions 
 
@@ -287,7 +293,7 @@ class Agent:
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
-        print("self.mu[0]",self.mu[0][4:])
+        print("self.mu[0]",self.mu[0])
 
         # Update action
         self.a += c.dt * self.a_dot
@@ -307,8 +313,8 @@ class Agent:
         self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
         print("mu initialized to:",self.mu[0])
 
-        self.beta_index = np.argmax(needs)
-        self.beta = np.ones((self.belief_dim))*1e-10
+        self.beta_index = np.argmax(needs[2:c.needs_len])
+        self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
 

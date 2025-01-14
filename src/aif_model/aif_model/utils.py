@@ -109,14 +109,20 @@ def display_vectors(img, vectors):
     '''Displays vectors on image'''
     h,w,_ = img.shape
 
+    # print("vectors",vectors)
+
     red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
     blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
     focus = (w//2 + int(vectors[2,0]*w/2),h//2+int(vectors[2,1]*h/2))
 
-    arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(150,0,0),2)
-    arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,150),2)
+    # print("red",red)
+    # print("blue",blue)
+    # print("focus",focus)
 
-    focused = cv.circle(arrowed.copy(), focus, 1, (0,255,0), -1)
+    arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(1,0,0),2)
+    # arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
+
+    focused = cv.circle(arrowed.copy(), focus, 5, (0,0.83,0), -1)
 
     return focused
 
@@ -126,7 +132,7 @@ def show_SP(S, P, vectors):
     tmp_S = cv.resize(tmp_S,(0,0),fx=f,fy=f)
     tmp_P = np.transpose(P[2],(1,2,0))
     tmp_P = cv.resize(tmp_P,(0,0),fx=f,fy=f)
-    tmp_P = display_vectors(tmp_P,(vectors-16)/32)
+    tmp_P = display_vectors(tmp_P,vectors)
     combined = np.concatenate((tmp_S,tmp_P), axis=1)
     combined = cv.cvtColor(combined,cv.COLOR_RGB2BGR)
     cv.imshow("S,P",combined)
