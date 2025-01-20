@@ -145,7 +145,7 @@
         </link>
     </model>
     
-    <model name="blue_sphere">
+    <!-- <model name="blue_sphere">
         <pose>4 -2.5 1 0 0 0</pose>
         <link name="link">
             <gravity>false</gravity>
@@ -162,7 +162,7 @@
                 </material>
             </visual>
         </link>
-    </model>
+    </model> -->
     
     <!--model name="green_sphere">
         <pose>4 0 3.5 0 0 0</pose>

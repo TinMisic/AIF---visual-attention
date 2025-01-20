@@ -32,7 +32,6 @@ class Agent:
         # Initialization of variables
         self.mu = np.zeros((c.n_orders, self.belief_dim), dtype="float32") 
         self.mu_dot = np.zeros_like(self.mu)
-        # self.focus_samples = [] # TODO: remove
 
         self.a = np.zeros(c.prop_len)
         self.a_dot = np.zeros_like(self.a)
@@ -118,13 +117,13 @@ class Agent:
     def get_focus_intentions(self):
         result = np.zeros((c.num_intentions,c.focus_len))
         result[:,1:] = self.mu[0,-2:] # previous focus belief
-        if self.mu[0,2]>0:
+        if self.mu[0,2]>0.1:
             result[:,1:] = self.mu[0,:2]
 
-        self.vectors[2,:] = result[0,1:]
+        # self.vectors[2,:] = result[0,1:]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[:,0] = amp + 0.01*self.mu[0,2] - 0.001*amp #TODO: adjust factors
+        result[:,0] = amp + 0.01*self.mu[0,2] - 0.01*amp #TODO: adjust factors
 
         return result
 
@@ -206,8 +205,8 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.01 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            component2 = 100 * (-0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = (0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             if i==2:
                 print("c1", component1)
                 print("c2", component2)
@@ -238,7 +237,6 @@ class Agent:
         bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        # TODO: edit print output for debug
         print("\nmu_dot[0]>")
         print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
         print("generative", generative, np.linalg.norm(generative))
@@ -253,7 +251,8 @@ class Agent:
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
-        print("mu_dot0",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
+        print("mu_dot0 before clip:",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
+        self.mu_dot = np.clip(self.mu_dot,-0.5,0.5) # clip mu update
 
 
     def get_a_dot(self, likelihood, Pi):
@@ -293,7 +292,9 @@ class Agent:
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
+        # self.mu = np.clip(self.mu,-1,1) # clip values
         print("self.mu[0]",self.mu[0])
+        self.vectors[2,:] = self.mu[0,-2:]
 
         # Update action
         self.a += c.dt * self.a_dot
