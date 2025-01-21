@@ -120,10 +120,10 @@ class Agent:
         if self.mu[0,2]>0.1:
             result[:,1:] = self.mu[0,:2]
 
-        # self.vectors[2,:] = result[0,1:]
-
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[:,0] = amp + 0.01*self.mu[0,2] - 0.01*amp #TODO: adjust factors
+        result[:,0] = 0.1*self.mu[0,2] - 0.5*amp #TODO: adjust factors
+
+        print("Focus intentions:", result)
 
         return result
 
@@ -205,8 +205,8 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            component2 = (0.5) * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.01 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = 0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             if i==2:
                 print("c1", component1)
                 print("c2", component2)
@@ -252,7 +252,7 @@ class Agent:
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
         print("mu_dot0 before clip:",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
-        self.mu_dot = np.clip(self.mu_dot,-0.5,0.5) # clip mu update
+        self.mu_dot = np.clip(self.mu_dot,-0.25,0.25) # clip mu update
 
 
     def get_a_dot(self, likelihood, Pi):
@@ -292,7 +292,8 @@ class Agent:
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
-        # self.mu = np.clip(self.mu,-1,1) # clip values
+        self.mu = np.clip(self.mu,-1,1) # clip mu values
+        self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],-0.5,0.5) # clip mu_amp
         print("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
 

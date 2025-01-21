@@ -111,7 +111,7 @@ class Inference(Node):
         self.fe_log.append(fe)
         self.err_log.append(err)
 
-        self.publish_action(action)
+        # self.publish_action(action)
 
         if self.flag==False:
             self.counter = 0
