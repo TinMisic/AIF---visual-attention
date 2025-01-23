@@ -151,37 +151,35 @@ def gaussian_2d(n, center_x, center_y, sigma):
 
     return gaussian_matrix, x_deriv, y_deriv
 
+def log_2d(n, center_x,center_y, amplitude):
+    x = np.linspace(-1, 1, n)
+    y = np.linspace(-1, 1, n)
+    x, y = np.meshgrid(x, y)
+    b = 2.6
+    d = 1
+    
+    log_matrix = amplitude * (np.log(-((x - center_x)**2 + (y - center_y)**2) / (b**2) + 1) + d)
+
+    x_deriv = -2*(x-center_x)/(amplitude * b**2 * (1-((x-center_x)**2 + (y-center_y)**2)/b**2))
+    y_deriv = -2*(y-center_y)/(amplitude * b**2 * (1-((x-center_x)**2 + (y-center_y)**2)/b**2))
+    amp_deriv = (np.log(-((x - center_x)**2 + (y - center_y)**2) / (b**2) + 1) + d)
+
+    return log_matrix, x_deriv, y_deriv, amp_deriv
+
 def pi_foveate(original, mu):
 
     amplitude_idx = c.needs_len+c.prop_len+c.latent_size
     center_x_idx = amplitude_idx + 1
     center_y_idx = amplitude_idx + 2
-    gaussian, x_deriv, y_deriv = gaussian_2d(c.width, mu[center_x_idx],mu[center_y_idx], c.foveation_sigma) #mu[center_x_idx],mu[center_y_idx]
-    pi = mu[amplitude_idx] * gaussian * original
+    log_matrix, x_deriv, y_deriv, amp_deriv = log_2d(c.width, mu[center_x_idx],mu[center_y_idx], mu[amplitude_idx]) # previously gaussian_2d
+    pi =  log_matrix * original
 
     derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
-    derivative[:,:,amplitude_idx] = gaussian * original
+    derivative[:,:,amplitude_idx] = amp_deriv * original
     derivative[:,:,center_x_idx] = x_deriv * original
     derivative[:,:,center_y_idx] = y_deriv * original
 
     dPi_dmu1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
-
-    # print("pi", pi)
-    # print("mu", mu[center_x_idx],mu[center_y_idx])
-    # pi_deriv_x = (1/pi)*x_deriv*original
-    # pi_deriv_y = (1/pi)*y_deriv*original
-    # # print("(1/pi)*x_deriv", pi_deriv)
-    # print("(1/pi)*x_deriv max", np.max(pi_deriv_x))
-    # print("(1/pi)*x_deriv sum", np.sum(pi_deriv_x))
-    # print("(1/pi)*x_deriv mean", np.mean(pi_deriv_x))
-    # print("(1/pi)*y_deriv max", np.max(pi_deriv_y))
-    # print("(1/pi)*y_deriv sum", np.sum(pi_deriv_y))
-    # print("(1/pi)*y_deriv mean", np.mean(pi_deriv_y))
-    # plt.imshow(pi_deriv_x)
-    # plt.show()
-    # plt.imshow(pi_deriv_y)
-    # plt.show()
-
 
     return  pi, derivative, dPi_dmu1
 
