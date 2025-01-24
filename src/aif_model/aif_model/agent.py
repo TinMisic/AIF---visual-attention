@@ -205,8 +205,8 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.01 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            component2 = -0.5 * np.mean(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.001 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             if i==2:
                 print("c1", component1)
                 print("c2", component2)
@@ -293,7 +293,7 @@ class Agent:
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
         self.mu = np.clip(self.mu,-1,1) # clip mu values
-        self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],1e-10,1) # clip mu_amp
+        self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],c.pi_vis,1) # clip mu_amp
         print("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
 
