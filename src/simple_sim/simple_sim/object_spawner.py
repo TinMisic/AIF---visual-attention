@@ -39,8 +39,20 @@ class CustomObject():
                             '</link>'\
                     '</model>'\
                     '</sdf>'
+                    
+    xml_invisible = '<sdf version="1.6">'\
+                     '<model name="{}">'\
+                        '<pose>-5 0 0 0 0 0</pose>'\
+                            '<link name="link">'\
+                                '<gravity>false</gravity>'\
+                                '<collision name="collision">'\
+                                    '<geometry><sphere><radius>0.0</radius></sphere></geometry>'\
+                                '</collision>'\
+                            '</link>'\
+                    '</model>'\
+                    '</sdf>'
 
-    def __init__(self, node, shape, color,t):
+    def __init__(self, node, shape, color,t, visible=True):
         self.node = node
         # choose random shape and color and increment counter
         #shape_index = np.random.randint(0,len(CustomObject.shapes))
@@ -51,7 +63,10 @@ class CustomObject():
         #CustomObject.counter[shape_index,color_index] += 1
 
         self.name = self.color + "_" + self.shape
-        self.xml = CustomObject.xml_template.format(self.name, CustomObject.shapes[self.shape], CustomObject.colors[self.color])
+        if visible:
+            self.xml = CustomObject.xml_template.format(self.name, CustomObject.shapes[self.shape], CustomObject.colors[self.color])
+        else:
+            self.xml = CustomObject.xml_invisible.format(self.name)
         self.life = np.random.randint(3,8) # lifetime of 3 to 6 seconds
         #self.flag = False
         self.step = 0
@@ -89,10 +104,10 @@ class ObjectSpawner(Node):
         self.increment = self.width/self.steps 
         row_t = 5
         
-        obj_list = [("red","sphere",row_t)]#,("blue","sphere",-row_t)]
+        obj_list = [("red","sphere",row_t,False),("blue","sphere",-row_t, False)]
 
-        for color, shape,t in obj_list:#product(CustomObject.colors, CustomObject.shapes):
-            self.objects.append(CustomObject(self,shape,color,t))
+        for color, shape,t,visible in obj_list:#product(CustomObject.colors, CustomObject.shapes):
+            self.objects.append(CustomObject(self,shape,color,t,visible))
         
 
     def spawn_entity(self, obj):
@@ -108,7 +123,7 @@ class ObjectSpawner(Node):
         state.name = obj.name
 
         # position
-        state.pose.position.x = np.random.random(1)[0] * 3 + 1.5# [0.5, 4.5] # 4.0
+        state.pose.position.x = 4.0# [0.5, 4.5] # 4.0
         state.pose.position.y = np.random.random(1)[0] * 4 - 2 #- self.increment * int(((obj.step/obj.t)*self.steps**2%self.steps)) #np.random.random(1)[0] * 4 - 2 # [-2, 2] -self.direction * 3.0# np.sign(obj.t)*obj.direction * self.width/2
         state.pose.position.z = np.random.random(1)[0] *2#4.25 - self.increment * obj.step#int(((obj.step/obj.t)*self.steps**2//self.steps)) #np.random.random(1)[0] *2  # [1, 3] #1.0 + np.sign(obj.t)*0.5
 

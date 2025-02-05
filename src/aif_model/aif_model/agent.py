@@ -74,54 +74,60 @@ class Agent:
         
         targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
         targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
+        print("Targets in latent:",targets)
         targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
         print("Target in pixels:",targets)
         self.vectors[:2,:] = np.array(utils.normalize(targets))
         targets = utils.pixels_to_angles(targets) # convert to angles
 
         result = np.zeros_like(targets) + self.mu[0,c.needs_len:c.needs_len+c.prop_len]
-        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
-            result += targets # add relative target angle to global camera angle
+        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if red object visible in image
+            result[0] += targets[0] # add relative target angle to global camera angle
+        if self.mu[0, c.needs_len+c.prop_len+c.prop_len+1+c.prop_len]>0: # if blue object visible in image
+            result[1] += targets[1] # add relative target angle to global camera angle
 
         return result
     
     def get_vis_intentions(self):
         red_cue = self.mu[0,2]
         red_exist = self.mu[0, c.needs_len+c.prop_len+c.prop_len]
-        sm = softmax((red_cue,red_exist))
-        
-        old = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+2]
-        cue = self.mu[0,:2]
-        ending = self.mu[0,c.needs_len+c.prop_len+2:c.needs_len+c.prop_len+c.latent_size]
-        mix = sm[0]*old + sm[1]*cue
+        sm_r = softmax((red_cue,red_exist))
 
-        result = np.zeros((2,c.latent_size))
-        result[0]=np.concatenate((mix,ending))
+        blue_cue = self.mu[0,5]
+        blue_exist = self.mu[0, c.needs_len+c.prop_len+c.prop_len+1+c.prop_len]
+        sm_b = softmax((blue_cue,blue_exist))
+        
+        old_r = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len]
+        cue_r = self.mu[0,:c.prop_len]
+        old_b = self.mu[0,c.needs_len+c.prop_len+c.prop_len+1:c.needs_len+c.prop_len+c.prop_len+1+c.prop_len]
+        cue_b = self.mu[0,c.prop_len+1:c.prop_len+1+c.prop_len]
+        visual = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
+        mix_r = sm_r[0]*old_r + sm_r[1]*cue_r
+        mix_b = sm_b[0]*old_b + sm_b[1]*cue_b
+
+        result = np.zeros((c.num_intentions,c.latent_size))
+
+        red_target = np.copy(visual)
+        red_target[:2] = mix_r
+        result[0]=red_target
+
+        blue_target = np.copy(visual)
+        blue_target[3:5] = mix_b
+        result[1]=blue_target
 
         return result
-    
-    # def get_vis_intentions(self): 
-    #     targets_vis = []
-    #     current_mu = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
-    #     for i in range(c.num_intentions): 
-    #         if self.mode == "closest":# find closest focus sample for each intention
-    #             diff = np.linalg.norm((self.focus_samples[i]-current_mu),axis=1) # euclidean distance
-    #             closest = np.argmin(diff)
-    #             targets_vis.append(self.focus_samples[i][closest])
-    #             #print("Focus sample id for object "+str(i)+" is "+str(closest)+" , diff is",diff[closest])
-    #         elif self.mode == "mean":
-    #             targets_vis.append(np.mean(self.focus_samples[i],axis=0))
-
-    #     return np.array(targets_vis)
 
     def get_focus_intentions(self):
         result = np.zeros((c.num_intentions,c.focus_len))
         result[:,1:] = self.mu[0,-2:] # previous focus belief
         if self.mu[0,2]>0.1:
-            result[:,1:] = self.mu[0,:2]
+            result[0,1:] = self.mu[0,:2]
+        if self.mu[0,5]>0.1:
+            result[1,1:] = self.mu[0,3:5]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[:,0] = 0.1*self.mu[0,2] + 0.05*amp #TODO: adjust factors
+        result[0,0] = 0.1*self.mu[0,2] + 0.05*amp
+        result[1,0] = 0.1*self.mu[0,5] + 0.05*amp 
 
         print("Focus intentions:", result)
 
@@ -176,7 +182,7 @@ class Agent:
         return Pi, dPi_dmu0, dPi_dmu1
     
     def get_intention_precisions(self, S):
-        self.beta_index = np.argmax(self.mu[0,2:c.needs_len])
+        self.beta_index = np.argmax([self.mu[0,2],self.mu[0,5]])
         self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
@@ -205,11 +211,11 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.001 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = c.attn_damper * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            if i==2:
-                print("c1", component1)
-                print("c2", component2)
+            # if i==2:
+            #     print("c1", component1)
+            #     print("c2", component2)
             total += component1 + component2
 
         return total
@@ -237,11 +243,11 @@ class Agent:
         bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        print("\nmu_dot[0]>")
-        print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
-        print("generative", generative, np.linalg.norm(generative))
+        # print("\nmu_dot[0]>")
+        # print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
+        # print("generative", generative, np.linalg.norm(generative))
         # print("backward", backward[4:6], np.linalg.norm(backward))
-        print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
+        # print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
         # print("top_down0", top_down0)
 
         # print("\nmu_dot[1]>")
@@ -339,7 +345,7 @@ class Agent:
             print("S",S)
             raise Exception("nan in mu")
         
-        print("mu:",self.mu[0])
+        # print("mu:",self.mu[0])
         
         # Get predictions
         P, grad_v = self.get_p()

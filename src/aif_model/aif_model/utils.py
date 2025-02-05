@@ -120,7 +120,7 @@ def display_vectors(img, vectors):
     # print("focus",focus)
 
     arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(1,0,0),2)
-    # arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
+    arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
 
     focused = cv.circle(arrowed.copy(), focus, 5, (0,0.83,0), -1)
 
