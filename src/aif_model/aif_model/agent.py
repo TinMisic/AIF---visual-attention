@@ -71,9 +71,9 @@ class Agent:
     
     def get_prop_intentions(self):
         targets = np.zeros((c.num_intentions,c.prop_len))
-        
-        targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
-        targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
+        # TODO: Fix target extraction!!!
+        targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+(2+1)*c.num_intentions] # grab visual positions of objects
+        targets = np.reshape(targets,(c.num_intentions,2+1))[:,:2] # reshape and cut
         print("Targets in latent:",targets)
         targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
         print("Target in pixels:",targets)
