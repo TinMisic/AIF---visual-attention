@@ -40,13 +40,12 @@ class Agent:
 
         self.alpha = np.array([1, 1, 1]) # needs, proprioceptive, visual [1, c.alpha, 1-c.alpha]
 
-        self.beta_index = 0
         weights = [] 
         for i in range(c.num_intentions):
             builder = np.array([1]*c.needs_len+[1]*c.prop_len+[1e-1]*c.latent_size+[1]*c.focus_len)
             weights.append(builder)
 
-        self.beta_weights = weights
+        self.beta_weights = np.array(weights)
         self.mode = "closest"
 
         # Generative models (simple)
@@ -71,7 +70,6 @@ class Agent:
     
     def get_prop_intentions(self):
         targets = np.zeros((c.num_intentions,c.prop_len))
-        # TODO: Fix target extraction!!!
         targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+(2+1)*c.num_intentions] # grab visual positions of objects
         targets = np.reshape(targets,(c.num_intentions,2+1))[:,:2] # reshape and cut
         print("Targets in latent:",targets)
@@ -101,6 +99,7 @@ class Agent:
         cue_r = self.mu[0,:c.prop_len]
         old_b = self.mu[0,c.needs_len+c.prop_len+c.prop_len+1:c.needs_len+c.prop_len+c.prop_len+1+c.prop_len]
         cue_b = self.mu[0,c.prop_len+1:c.prop_len+1+c.prop_len]
+
         visual = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
         mix_r = sm_r[0]*old_r + sm_r[1]*cue_r
         mix_b = sm_b[0]*old_b + sm_b[1]*cue_b
@@ -182,9 +181,8 @@ class Agent:
         return Pi, dPi_dmu0, dPi_dmu1
     
     def get_intention_precisions(self, S):
-        self.beta_index = np.argmax([self.mu[0,2],self.mu[0,5]])
-        self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
-        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        sm  = softmax(np.array([self.mu[0,2],self.mu[0,5]])).reshape(2, 1)
+        self.beta = sm * self.beta_weights
 
         dGamma_dmu0 = [np.zeros((self.belief_dim, self.belief_dim))] * c.num_intentions 
 
@@ -213,9 +211,9 @@ class Agent:
         for i in range(len(precision)):
             component1 = c.attn_damper * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
-            # if i==2:
-            #     print("c1", component1)
-            #     print("c2", component2)
+            if i==2:
+                print("c1", component1)
+                print("c2", component2)
             total += component1 + component2
 
         return total
@@ -321,9 +319,8 @@ class Agent:
         self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
         print("mu initialized to:",self.mu[0])
 
-        self.beta_index = np.argmax(needs[2:c.needs_len])
-        self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
-        self.beta[self.beta_index] = self.beta_weights[self.beta_index]
+        sm = softmax(np.array([self.mu[0,2],self.mu[0,5]])).reshape(2, 1)
+        self.beta = sm * self.beta_weights
 
 
     def switch_mode(self, step):
