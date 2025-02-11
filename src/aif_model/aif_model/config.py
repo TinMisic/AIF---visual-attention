@@ -29,7 +29,8 @@ pi_vis =  1e-1#7e-3
 foveation_sigma = 2
 dt = 0.4 # 0.4
 a_max = 1.0
-attn_damper = 1e-3
+attn_damper1 = 1e-2
+attn_damper2 = 1e-3
 
 limits = [[90,90],[-90,-90]] # [[pitch min, yaw min],[pitch max, yaw max]]
 noise = 5e-5 # action noise

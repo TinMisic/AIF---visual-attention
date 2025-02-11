@@ -125,8 +125,8 @@ class Agent:
             result[1,1:] = self.mu[0,3:5]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[0,0] = 0.1*self.mu[0,2] + 0.05*amp
-        result[1,0] = 0.1*self.mu[0,5] + 0.05*amp 
+        result[0,0] = 0.1*self.mu[0,2] - 0.5*amp
+        result[1,0] = 0.1*self.mu[0,5] - 0.5*amp 
 
         print("Focus intentions:", result)
 
@@ -209,8 +209,12 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = c.attn_damper * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1[-3] = 0.1 * component1[-3]
+            component1[-2:] = c.attn_damper1 * component1[-2:]
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2[-3] = c.attn_damper2 * component2[-3]
+
             if i==2:
                 print("c1", component1)
                 print("c2", component2)
@@ -243,9 +247,9 @@ class Agent:
 
         # print("\nmu_dot[0]>")
         # print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
-        # print("generative", generative, np.linalg.norm(generative))
+        print("generative", generative, np.linalg.norm(generative))
         # print("backward", backward[4:6], np.linalg.norm(backward))
-        # print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
+        print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
         # print("top_down0", top_down0)
 
         # print("\nmu_dot[1]>")
