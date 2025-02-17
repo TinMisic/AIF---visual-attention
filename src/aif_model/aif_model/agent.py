@@ -163,12 +163,13 @@ class Agent:
     def get_sensory_precisions(self, S):
         
         pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)), self.mu[0])
+        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width)), S[2])
 
         dim = c.needs_len+c.prop_len+c.latent_size+c.focus_len
 
         Pi = [np.ones(dim) * c.pi_need,
               np.ones(dim) * c.pi_prop, 
-              pi_vis]
+              pi_vis] #TODO: add + pi_vis_s
         
         dPi_dmu0 = [np.zeros((dim,dim)), 
                     np.zeros((dim,dim)), 
@@ -177,8 +178,12 @@ class Agent:
         dPi_dmu1 = [np.zeros((dim,dim)), 
                     np.zeros((dim,dim)), 
                     dPi_dmu1_vis]
+        
+        dPi_dS = [np.zeros((dim,dim)), 
+                    np.zeros((dim,dim)), 
+                    dPi_dS0]
 
-        return Pi, dPi_dmu0, dPi_dmu1
+        return Pi, dPi_dmu0, dPi_dmu1, dPi_dS
     
     def get_intention_precisions(self, S):
         sm  = softmax(np.array([self.mu[0,2],self.mu[0,5]])).reshape(2, 1)
@@ -263,31 +268,22 @@ class Agent:
         self.mu_dot = np.clip(self.mu_dot,-0.25,0.25) # clip mu update
 
 
-    def get_a_dot(self, likelihood, Pi):
+    def get_a_dot(self, likelihood, Pi, dPi_dS, E_s):
         """
         Get action update
         """
+        e_s = [np.concatenate([E_s[0],np.zeros(self.belief_dim - c.needs_len)]),np.concatenate([E_s[1],np.zeros(self.belief_dim - c.prop_len)]), torch.mean(E_s[2],dim=(0,1))]
+
         e_prop = likelihood["prop"].dot(self.G_p)
 
-        # lkh_vis= np.array(likelihood["vis"][c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions], dtype="float32")
-        # lkh_vis = np.reshape(lkh_vis,(c.num_intentions,c.prop_len))
-        # lkh_pix = utils.denormalize(lkh_vis)
-        # lkh_ang = utils.pixels_to_angles(lkh_pix)
-
-        # index = np.argmax(np.linalg.norm(lkh_angles,axis=1))# max = biggest surprise; 
-        # index = self.beta_index#np.argmax(self.beta) # from beta = most desired; 
-        
-        # lkh_angles = lkh_ang[index]
-        # lkh_angles = lkh_angles[index]
-        # old_lkh_angles = np.mean(old_lkh_ang,axis=0)# avg = average movement
-
-        # d_mu_lkh_vis = c.dt * lkh_angles
         d_mu_lkh_prop = -c.dt * e_prop
 
-        # print("dmu_lkh_vis",d_mu_lkh_vis)
-        # print("dmu_lkh_prop",d_mu_lkh_prop)
+        attn = self.attention(Pi, dPi_dS, e_s)
+        focus = np.zeros((1,2))
+        focus[0] = attn[-2:]
+        attn_comp = utils.pixels_to_angles(focus)[0]
 
-        self.a_dot = d_mu_lkh_prop #c.alpha * d_mu_lkh_prop + (1 - c.alpha) * d_mu_lkh_vis
+        self.a_dot = d_mu_lkh_prop #TODO: add + attn_comp
         # print("a_dot",self.a_dot)
 
     def integrate(self):
@@ -361,7 +357,7 @@ class Agent:
         E_mu = self.get_e_mu(I)
 
         # Get sensory precisions
-        Pi, dPi_dmu0, dPi_dmu1 = self.get_sensory_precisions(S)
+        Pi, dPi_dmu0, dPi_dmu1, dPi_dS = self.get_sensory_precisions(S)
 
         # Get intention precisions
         Gamma, dGamma_dmu0, dGamma_dmu1 = self.get_intention_precisions(S)
@@ -373,7 +369,7 @@ class Agent:
         self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1)
 
         # Get action update
-        self.get_a_dot(likelihood, Pi) # E_s[0] * self.pi_s[0] * self.alpha[0]
+        self.get_a_dot(likelihood, Pi, dPi_dS, E_s) # E_s[0] * self.pi_s[0] * self.alpha[0]
 
         # Update
         self.integrate()

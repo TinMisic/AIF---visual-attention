@@ -5,7 +5,7 @@ channels = 3
 horizontal_fov = 1.3963
 
 # Training config
-latent_size = 12
+latent_size = 8
 learning_rate = 1e-3
 variance = 1
 n_epochs = 100
@@ -14,7 +14,7 @@ beta = 2 # for betaVAE
 
 # Agent config
 package_name = "aif_model"
-vae_path = "two_vae.pt"#"vae-disentangled_state_dict_scaled.pt"
+vae_path = "vae1-lat8.pt"#"vae-disentangled_state_dict_scaled.pt"
 focus_samples = ["focus0.csv","focus1.csv"]#,"focus2.csv","focus3.csv"]
 n_orders = 2 # orders of belief
 num_intentions = 2

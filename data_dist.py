@@ -13,7 +13,7 @@ def process_coordinates(data, i):
     rounded_coords = np.round(data[:, i:i+2]).astype(int)
     return list(map(tuple, rounded_coords))
 
-def plot_histogram(coords):
+def generate_histogram(coords):
     # Count occurrences of each coordinate
     coord_counts = Counter(coords)
     
@@ -30,13 +30,26 @@ def plot_histogram(coords):
         if x_min <= x <= x_max and y_min <= y <= y_max:
             image[x - x_min, y - y_min] = count
     
-    plt.figure(figsize=(10, 6))
-    plt.imshow(image.T, origin='lower', cmap='viridis', extent=[x_min, x_max, y_min, y_max])
-    plt.colorbar(label='Frequency')
-    plt.xlabel('X Coordinate')
-    plt.ylabel('Y Coordinate')
-    plt.title('Histogram of Image Coordinates')
-    plt.grid(True, linestyle='--', alpha=0.5)
+    return image
+
+def plot_histograms(original_image):
+    # Create rotated versions
+    rotated_90 = np.rot90(original_image)
+    rotated_180 = np.rot90(rotated_90)
+    rotated_270 = np.rot90(rotated_180)
+    summed_image = original_image + rotated_90 + rotated_180 + rotated_270
+    
+    fig, axes = plt.subplots(1, 5, figsize=(20, 6))
+    images = [original_image, rotated_90, rotated_180, rotated_270, summed_image]
+    titles = ['Original', 'Rotated 90°', 'Rotated 180°', 'Rotated 270°', 'Summed']
+    
+    for ax, img, title in zip(axes, images, titles):
+        ax.imshow(img.T, origin='lower', cmap='viridis', extent=[-10, 42, -10, 42])
+        ax.set_title(title)
+        ax.set_xlabel('X Coordinate')
+        ax.set_ylabel('Y Coordinate')
+    
+    plt.colorbar(axes[0].imshow(original_image.T, origin='lower', cmap='viridis', extent=[-10, 42, -10, 42]), ax=axes, orientation='horizontal', fraction=0.02, pad=0.04, label='Frequency')
     plt.show()
 
 def main():
@@ -47,7 +60,9 @@ def main():
     
     data = read_csv(args.file_path)
     coords = process_coordinates(data, args.i)
-    plot_histogram(coords)
+    original_image = generate_histogram(coords)
+    plot_histograms(original_image)
 
 if __name__ == '__main__':
     main()
+
