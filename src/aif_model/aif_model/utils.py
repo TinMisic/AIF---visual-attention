@@ -120,7 +120,7 @@ def display_vectors(img, vectors):
     # print("focus",focus)
 
     arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(1,0,0),2)
-    # arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
+    arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
 
     focused = cv.circle(arrowed.copy(), focus, 5, (0,0.83,0), -1)
 
@@ -199,7 +199,7 @@ def find_red_centroid(image):
     
     # Create masks for both red ranges and combine them
     mask1 = cv.inRange(hsv, lower_red1, upper_red1)
-    mask2 = c.inRange(hsv, lower_red2, upper_red2)
+    mask2 = cv.inRange(hsv, lower_red2, upper_red2)
     red_mask = cv.bitwise_or(mask1, mask2)
 
     cx = cy = 0
