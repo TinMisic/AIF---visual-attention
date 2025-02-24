@@ -27,6 +27,8 @@ pi_prop = 0.5
 pi_need = 0.5
 pi_vis =  1#7e-3
 foveation_sigma = 2
+attn_damper1 = 1e-2
+attn_damper2 = 1e-3
 dt = 0.4 # 0.4
 a_max = 1.0
 

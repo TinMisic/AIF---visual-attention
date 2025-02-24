@@ -121,7 +121,7 @@ class Agent:
             result[:,1:] = self.mu[0,:2]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[:,0] = 0.1*self.mu[0,2] + 0.05*amp #TODO: adjust factors
+        result[:,0] = 0.1*self.mu[0,2] - 0.05*amp #TODO: adjust factors
 
         print("Focus intentions:", result)
 
@@ -158,22 +158,27 @@ class Agent:
     def get_sensory_precisions(self, S):
         
         pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)), self.mu[0])
+        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width)), S[2])
 
         dim = c.needs_len+c.prop_len+c.latent_size+c.focus_len
 
         Pi = [np.ones(dim) * c.pi_need,
               np.ones(dim) * c.pi_prop, 
-              pi_vis]
+              (pi_vis + pi_vis_s)/2]  # /2 if pi_presence is active
         
         dPi_dmu0 = [np.zeros((dim,dim)), 
                     np.zeros((dim,dim)), 
-                    dPi_dmu0_vis]
+                    dPi_dmu0_vis/2]
         
         dPi_dmu1 = [np.zeros((dim,dim)), 
                     np.zeros((dim,dim)), 
-                    dPi_dmu1_vis]
+                    dPi_dmu1_vis/2]
 
-        return Pi, dPi_dmu0, dPi_dmu1
+        dPi_dS = [np.zeros((dim,dim)), 
+                    np.zeros((dim,dim)), 
+                    dPi_dS0/2]
+
+        return Pi, dPi_dmu0, dPi_dmu1, dPi_dS
     
     def get_intention_precisions(self, S):
         self.beta_index = np.argmax(self.mu[0,2:c.needs_len])
@@ -205,14 +210,17 @@ class Agent:
     def attention(self, precision, derivative, error):
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
-            component1 = 0.001 * 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component1[-3] = 0.1 * component1[-3]
+            component1[-2:] = c.attn_damper1 * component1[-2:]
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
+            component2[-3] = c.attn_damper2 * component2[-3]
             if i==2:
                 print("c1", component1)
                 print("c2", component2)
             total += component1 + component2
 
-        return total
+        return total, component1, component2
 
     def get_mu_dot(self, lkh, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1):
         """
@@ -231,11 +239,11 @@ class Agent:
         generative = lkh['prop'] + lkh['need'] + lkh['vis']
         backward = - c.k * forward_i
 
-        bottom_up0 = self.attention(Pi,dPi_dmu0,e_s)
-        top_down0 = self.attention(Gamma,dGamma_dmu0,E_mu)
+        bottom_up0, _, _ = self.attention(Pi,dPi_dmu0,e_s)
+        top_down0, _, _ = self.attention(Gamma,dGamma_dmu0,E_mu)
 
-        bottom_up1 = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
-        top_down1 = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
+        bottom_up1, _, _ = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
+        top_down1, _, _ = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
         print("\nmu_dot[0]>")
         print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
@@ -255,32 +263,28 @@ class Agent:
         self.mu_dot = np.clip(self.mu_dot,-0.25,0.25) # clip mu update
 
 
-    def get_a_dot(self, likelihood, Pi):
+    def get_a_dot(self, likelihood, Pi, dPi_dS, E_s):
         """
         Get action update
         """
+        e_s = [np.concatenate([E_s[0],np.zeros(self.belief_dim - c.needs_len)]),np.concatenate([E_s[1],np.zeros(self.belief_dim - c.prop_len)]), torch.mean(E_s[2],dim=(0,1))]
         e_prop = likelihood["prop"].dot(self.G_p)
 
-        # lkh_vis= np.array(likelihood["vis"][c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions], dtype="float32")
-        # lkh_vis = np.reshape(lkh_vis,(c.num_intentions,c.prop_len))
-        # lkh_pix = utils.denormalize(lkh_vis)
-        # lkh_ang = utils.pixels_to_angles(lkh_pix)
-
-        # index = np.argmax(np.linalg.norm(lkh_angles,axis=1))# max = biggest surprise; 
-        # index = self.beta_index#np.argmax(self.beta) # from beta = most desired; 
-        
-        # lkh_angles = lkh_ang[index]
-        # lkh_angles = lkh_angles[index]
-        # old_lkh_angles = np.mean(old_lkh_ang,axis=0)# avg = average movement
-
-        # d_mu_lkh_vis = c.dt * lkh_angles
         d_mu_lkh_prop = -c.dt * e_prop
 
-        # print("dmu_lkh_vis",d_mu_lkh_vis)
-        # print("dmu_lkh_prop",d_mu_lkh_prop)
+        attn, c1, c2 = self.attention(Pi, dPi_dS, e_s)
+        print("attn c1", c1)
+        print("attn c2", c2)
+        focus = np.zeros((1,2))
+        focus[0] = attn[-2:]
+        focus = (focus+1)*16
+        print("focus",focus)
+        attn_comp = utils.pixels_to_angles(focus)[0]
 
-        self.a_dot = d_mu_lkh_prop #c.alpha * d_mu_lkh_prop + (1 - c.alpha) * d_mu_lkh_vis
-        # print("a_dot",self.a_dot)
+        self.a_dot = d_mu_lkh_prop + attn_comp #d_mu_lkh_prop # TODO: add + attn_comp
+        print("d_mu_lkh_prop", d_mu_lkh_prop)
+        print("attn_comp", attn_comp)
+        print("a_dot",self.a_dot)
 
     def integrate(self):
         """
@@ -354,7 +358,7 @@ class Agent:
         E_mu = self.get_e_mu(I)
 
         # Get sensory precisions
-        Pi, dPi_dmu0, dPi_dmu1 = self.get_sensory_precisions(S)
+        Pi, dPi_dmu0, dPi_dmu1, dPi_dS = self.get_sensory_precisions(S)
 
         # Get intention precisions
         Gamma, dGamma_dmu0, dGamma_dmu1 = self.get_intention_precisions(S)
@@ -366,7 +370,7 @@ class Agent:
         self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1)
 
         # Get action update
-        self.get_a_dot(likelihood, Pi) # E_s[0] * self.pi_s[0] * self.alpha[0]
+        self.get_a_dot(likelihood, Pi, dPi_dS, E_s) # E_s[0] * self.pi_s[0] * self.alpha[0]
 
         # Update
         self.integrate()

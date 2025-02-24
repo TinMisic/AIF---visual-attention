@@ -184,15 +184,52 @@ def pi_foveate(original, mu):
     return  pi, derivative, dPi_dmu1
 
 def pi_uniform(original, mu):
-    return original, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
+    return original, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
+
+def find_red_centroid(image):
+    # Convert to HSV color space
+    hsv = cv.cvtColor(image, cv.COLOR_RGB2HSV)
+    
+    # Define red color range (red has two ranges in HSV)
+    lower_red1 = np.array([0, 120, 70])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 120, 70])
+    upper_red2 = np.array([180, 255, 255])
+    
+    # Create masks for both red ranges and combine them
+    mask1 = cv.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv.inRange(hsv, lower_red2, upper_red2)
+    red_mask = cv.bitwise_or(mask1, mask2)
+
+    cx = cy = 0
+    
+    # Find contours
+    contours, _ = cv.findContours(red_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        # Find the largest red region
+        largest_contour = max(contours, key=cv.contourArea)
+        
+        # Compute the centroid
+        M = cv.moments(largest_contour)
+        if M['m00'] != 0:
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+    
+    return cx, cy
+
 
 def pi_presence(original, img):
-    img = img.numpy() + 1e-10
-    # print(np.max(img, axis=(2,3)))
-    m = np.max(img[:,0,:,:]) # red channel
-    scaled = img[0,0,:,:]/m
-    # print(scaled.shape, original.shape)
-    result = original * scaled
-    # print(original.shape)
-    # print(result.shape)
-    return result, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size))
+    img = np.transpose(img.detach().squeeze().numpy(),(1,2,0))
+    img = img * 256 # scale
+    r_x, r_y = find_red_centroid(img)
+
+    log_matrix, x_deriv, y_deriv, _ = log_2d(c.width, r_x, r_y, 1.0)
+    pi = log_matrix * original
+    
+    derivative = np.zeros((c.width,c.height,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
+    derivative[:,:,-2] = x_deriv * original
+    derivative[:,:,-1] = y_deriv * original
+
+    dPi_dS1 = np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
+    return pi, derivative, dPi_dS1
