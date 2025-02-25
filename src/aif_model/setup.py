@@ -22,7 +22,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'act_inf = aif_model.act_inf:main'
+            'act_inf = aif_model.act_inf:main',
+            'auto_trial = aif_model.auto_trial:main'
         ],
     },
 )

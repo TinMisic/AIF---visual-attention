@@ -104,7 +104,7 @@ class Inference(Node):
         # get sensory input
         S =  self.needs, self.proprioceptive, self.visual
 
-        action, fe, err = self.agent.inference_step(S,self.step)
+        action, fe, err = self.agent.inference_step(S)
         action = utils.add_gaussian_noise(action)
         # print("Action:",action)
 

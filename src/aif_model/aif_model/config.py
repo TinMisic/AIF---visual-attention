@@ -32,6 +32,8 @@ attn_damper2 = 1e-3
 dt = 0.4 # 0.4
 a_max = 1.0
 
+printing = False
+
 limits = [[90,90],[-90,-90]] # [[pitch min, yaw min],[pitch max, yaw max]]
 noise = 5e-5 # action noise
 

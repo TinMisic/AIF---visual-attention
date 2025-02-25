@@ -9,6 +9,9 @@ from ament_index_python.packages import get_package_share_directory
 import os
 from scipy.special import softmax
 
+def printf(*args, **kwargs):
+    if c.printing: print(*args, **kwargs)
+
 class Agent:
     """
     Active Inference agent
@@ -47,7 +50,6 @@ class Agent:
             weights.append(builder)
 
         self.beta_weights = weights
-        self.mode = "closest"
 
         # Generative models (simple)
         self.G_p = utils.shift_rows(np.eye(self.belief_dim, c.prop_len),c.needs_len)
@@ -75,7 +77,7 @@ class Agent:
         targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
         targets = np.reshape(targets,(c.num_intentions,c.prop_len)) # reshape
         targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
-        print("Target in pixels:",targets)
+        printf("Target in pixels:",targets)
         self.vectors[:2,:] = np.array(utils.normalize(targets))
         targets = utils.pixels_to_angles(targets) # convert to angles
 
@@ -99,20 +101,6 @@ class Agent:
         result[0]=np.concatenate((mix,ending))
 
         return result
-    
-    # def get_vis_intentions(self): 
-    #     targets_vis = []
-    #     current_mu = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]
-    #     for i in range(c.num_intentions): 
-    #         if self.mode == "closest":# find closest focus sample for each intention
-    #             diff = np.linalg.norm((self.focus_samples[i]-current_mu),axis=1) # euclidean distance
-    #             closest = np.argmin(diff)
-    #             targets_vis.append(self.focus_samples[i][closest])
-    #             #print("Focus sample id for object "+str(i)+" is "+str(closest)+" , diff is",diff[closest])
-    #         elif self.mode == "mean":
-    #             targets_vis.append(np.mean(self.focus_samples[i],axis=0))
-
-    #     return np.array(targets_vis)
 
     def get_focus_intentions(self):
         result = np.zeros((c.num_intentions,c.focus_len))
@@ -123,7 +111,7 @@ class Agent:
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
         result[:,0] = 0.1*self.mu[0,2] - 0.05*amp #TODO: adjust factors
 
-        print("Focus intentions:", result)
+        printf("Focus intentions:", result)
 
         return result
 
@@ -216,8 +204,8 @@ class Agent:
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             component2[-3] = c.attn_damper2 * component2[-3]
             if i==2:
-                print("c1", component1)
-                print("c2", component2)
+                printf("c1", component1)
+                printf("c2", component2)
             total += component1 + component2
 
         return total, component1, component2
@@ -245,21 +233,21 @@ class Agent:
         bottom_up1, _, _ = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1, _, _ = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        print("\nmu_dot[0]>")
-        print("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
-        print("generative", generative, np.linalg.norm(generative))
-        # print("backward", backward[4:6], np.linalg.norm(backward))
-        print("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
-        # print("top_down0", top_down0)
+        printf("\nmu_dot[0]>")
+        printf("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
+        printf("generative", generative, np.linalg.norm(generative))
+        # printf("backward", backward[4:6], np.linalg.norm(backward))
+        printf("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
+        # printf("top_down0", top_down0)
 
-        # print("\nmu_dot[1]>")
-        # print("-forward_i", -forward_i[4:6], np.linalg.norm(-forward_i))
-        # print("bottom_up1",bottom_up1)
-        # print("top_down1", top_down1)
+        # printf("\nmu_dot[1]>")
+        # printf("-forward_i", -forward_i[4:6], np.linalg.norm(-forward_i))
+        # printf("bottom_up1",bottom_up1)
+        # printf("top_down1", top_down1)
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
-        print("mu_dot0 before clip:",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
+        printf("mu_dot0 before clip:",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
         self.mu_dot = np.clip(self.mu_dot,-0.25,0.25) # clip mu update
 
 
@@ -273,32 +261,32 @@ class Agent:
         d_mu_lkh_prop = -c.dt * e_prop
 
         attn, c1, c2 = self.attention(Pi, dPi_dS, e_s)
-        print("attn c1", c1)
-        print("attn c2", c2)
+        printf("attn c1", c1)
+        printf("attn c2", c2)
         focus = np.zeros((1,2))
         focus[0] = attn[-2:]
         focus = (focus+1)*16
-        print("focus",focus)
+        printf("focus",focus)
         attn_comp = utils.pixels_to_angles(focus)[0]
 
         self.a_dot = d_mu_lkh_prop + attn_comp #d_mu_lkh_prop # TODO: add + attn_comp
-        print("d_mu_lkh_prop", d_mu_lkh_prop)
-        print("attn_comp", attn_comp)
-        print("a_dot",self.a_dot)
+        printf("d_mu_lkh_prop", d_mu_lkh_prop)
+        printf("attn_comp", attn_comp)
+        printf("a_dot",self.a_dot)
 
     def integrate(self):
         """
         Integrate with gradient descent
         """
         if (self.mu_dot == np.nan).any():
-            print("nan in mu_dot",self.mu_dot)
+            printf("nan in mu_dot",self.mu_dot)
             raise Exception("nan in mu_dot")
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
         self.mu = np.clip(self.mu,-1,1) # clip mu values
         self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],c.pi_vis,1) # clip mu_amp
-        print("self.mu[0]",self.mu[0])
+        printf("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
 
         # Update action
@@ -317,33 +305,23 @@ class Agent:
         #     focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
         #     self.focus_samples.append(focus_samples)
         self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
-        print("mu initialized to:",self.mu[0])
+        printf("mu initialized to:",self.mu[0])
 
         self.beta_index = np.argmax(needs[2:c.needs_len])
         self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         self.beta[self.beta_index] = self.beta_weights[self.beta_index]
 
-
-    def switch_mode(self, step):
-        if step%5== 0:
-            # self.mode="mean"
-            if self.mode=="closest": self.mode = "mean"
-            elif self.mode=="mean": self.mode = "closest"
-        # else:
-        #     self.mode = "closest"
-        
-
-    def inference_step(self, S, step):
+    def inference_step(self, S):
         """
         Run an inference step
         """
         # TODO: remove
         if (self.mu == np.nan).any():
-            print("nan in mu",self.mu)
-            print("S",S)
+            printf("nan in mu",self.mu)
+            printf("S",S)
             raise Exception("nan in mu")
         
-        print("mu:",self.mu[0])
+        printf("mu:",self.mu[0])
         
         # Get predictions
         P, grad_v = self.get_p()
@@ -377,8 +355,5 @@ class Agent:
 
         # Show visual sensory and predicted data
         utils.show_SP(S, P, self.vectors)
-
-        # Start action
-        self.switch_mode(step)
 
         return self.a, np.linalg.norm(likelihood["vis"]), np.linalg.norm(E_s[2])
