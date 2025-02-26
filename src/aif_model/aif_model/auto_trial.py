@@ -50,14 +50,13 @@ class AutoTrial(Node):
         self.bridge = CvBridge()
 
         # Trial variables
-        self.num_trials = 1
+        self.num_trials = 10
         self.init_t = 10 # steps
         self.cue_t = 100 # steps
         self.coa_t = 100 # steps
         self.step_max = 1000 # steps
-
-        self.endogenous = True
-        self.valid = True
+        self.endogenous = False
+        self.valid = False
         self.action_enabled = False
         
         # init agent
@@ -123,8 +122,8 @@ class AutoTrial(Node):
 
     def generate_cues(self):
         endo_cue = np.ones(3)
-        exo_cue = np.array([-1,0,1])
-        ball_true = np.array([-1,0,1])
+        exo_cue = np.array([-1.0,0.0,1.0])
+        ball_true = np.array([-1.0,0.0,1.0])
 
         exo_cue = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])
         projection = project(exo_cue)
@@ -135,7 +134,8 @@ class AutoTrial(Node):
         if self.valid:
             ball_true = exo_cue
         else:
-            ball_true = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])
+            # mirror exo_cue
+            ball_true = np.array([4,-exo_cue[1], 2 - exo_cue[2]])
 
         return endo_cue, exo_cue, ball_true
 
@@ -179,7 +179,9 @@ class AutoTrial(Node):
             
             # initialize logging variables
             reaction_time = -1
+            perceived = False
             reach_time = -1
+            reached = False
             cue_center_dist = -1
             target_center_dist = -1
             cue_target_dist = -1
@@ -189,14 +191,16 @@ class AutoTrial(Node):
             self.agent.init_belief(self.needs,self.proprioceptive,self.visual)
 
             # one trial
-            print("<Auto Trials> Starting trial " + str(i) + "/" +str(self.num_trials))
+            print("<Auto Trials> Starting trial " + str(i+1) + "/" +str(self.num_trials))
             # INIT
             for _ in range(self.init_t):
                 self.update()
-                if self.ball_perceived() and reaction_time<0:
+                if self.ball_perceived() and not perceived:
                     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                if self.ball_reached() and reach_time<0:
+                    perceived=True
+                if self.ball_reached() and not reached:
                     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                    reached = True
 
             # GENERATE CUES
             endo_cue, exo_cue, ball_true = self.generate_cues()
@@ -217,25 +221,29 @@ class AutoTrial(Node):
             print("<Auto Trials> Cueing...")
             for _ in range(self.cue_t):
                 self.update()
-                if self.ball_perceived() and reaction_time<0:
+                if self.ball_perceived() and not perceived:
                     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                if self.ball_reached() and reach_time<0:
+                    perceived = True
+                if self.ball_reached() and not reached:
                     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                    reached = True
 
             # REMOVE CUE
             if self.endogenous: # set self.needs
                 self.needs = np.zeros((c.needs_len))
             else: # move ball
-                self.move_ball((-1, 0, 1))
+                self.move_ball((-1.0, 0.0, 1.0))
 
             # COA: Cue Onset Asynchrony
             print("<Auto Trials> COA...")
             for _ in range(self.coa_t):
                 self.update()
-                if self.ball_perceived() and reaction_time<0:
+                if self.ball_perceived() and not perceived:
                     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                if self.ball_reached() and reach_time<0:
+                    perceived = True
+                if self.ball_reached() and not reached:
                     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                    reached = True
 
             # SET TARGET
             print("<Auto Trials> Setting Target...")
@@ -245,12 +253,19 @@ class AutoTrial(Node):
             print("<Auto Trials> Perception...")
             while (self.step - self.init_t - self.cue_t - self.coa_t) <= self.step_max:
                 self.update()
-                if self.ball_perceived() and reaction_time<0:
+                if self.ball_perceived() and not perceived:
                     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
+                    perceived = True
                     if not self.action_enabled:
                         break
-                if self.ball_reached() and reach_time<0:
+                if self.ball_reached() and not reached:
                     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                    reached = True
+
+            if not perceived:
+                reaction_time = self.step_max
+            if not reached and self.action_enabled:
+                reach_time = self.step_max
 
             # log data
             v = [reaction_time,reach_time,cue_center_dist,target_center_dist,cue_target_dist]
