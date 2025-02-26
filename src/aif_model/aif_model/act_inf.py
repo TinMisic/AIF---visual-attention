@@ -49,7 +49,7 @@ class Inference(Node):
         self.err_log = []
 
     def wait_data(self):
-        print("Waiting on data...")
+        print("Waiting for data...")
         while not self.got_data.all()==True:
             rclpy.spin_once(self)
         self.agent.init_belief(self.needs,self.proprioceptive,self.visual)

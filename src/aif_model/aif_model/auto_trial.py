@@ -50,11 +50,11 @@ class AutoTrial(Node):
         self.bridge = CvBridge()
 
         # Trial variables
-        self.num_trials = 3
+        self.num_trials = 1
         self.init_t = 10 # steps
-        self.cue_t = 10 # steps
-        self.coa_t = 10 # steps
-        self.step_max = 10 # steps
+        self.cue_t = 100 # steps
+        self.coa_t = 100 # steps
+        self.step_max = 1000 # steps
 
         self.endogenous = True
         self.valid = True
@@ -85,7 +85,7 @@ class AutoTrial(Node):
         self.reset_cam()
 
     def wait_data(self):
-        print("<Auto Trials> Waiting on data...")
+        print("<Auto Trials> Waiting for data...")
         while not self.got_data.all()==True:
             rclpy.spin_once(self)
 
@@ -126,7 +126,7 @@ class AutoTrial(Node):
         exo_cue = np.array([-1,0,1])
         ball_true = np.array([-1,0,1])
 
-        exo_cue = np.array([4,np.random.random(1)[0]*6 - 3, np.random.random(1)[0]*6 - 2])
+        exo_cue = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])
         projection = project(exo_cue)
         normalized  = utils.normalize(projection)
         endo_cue[0] = normalized[0]
@@ -135,7 +135,7 @@ class AutoTrial(Node):
         if self.valid:
             ball_true = exo_cue
         else:
-            ball_true = np.array([4,np.random.random(1)[0]*6 - 3, np.random.random(1)[0]*6 - 2])
+            ball_true = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])
 
         return endo_cue, exo_cue, ball_true
 
@@ -194,10 +194,9 @@ class AutoTrial(Node):
             for _ in range(self.init_t):
                 self.update()
                 if self.ball_perceived() and reaction_time<0:
-                    reaction_time = self.step
+                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
                 if self.ball_reached() and reach_time<0:
-                    reach_time = self.step
-                # input("nest step>")
+                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
 
             # GENERATE CUES
             endo_cue, exo_cue, ball_true = self.generate_cues()
@@ -219,9 +218,9 @@ class AutoTrial(Node):
             for _ in range(self.cue_t):
                 self.update()
                 if self.ball_perceived() and reaction_time<0:
-                    reaction_time = self.step
+                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
                 if self.ball_reached() and reach_time<0:
-                    reach_time = self.step
+                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
 
             # REMOVE CUE
             if self.endogenous: # set self.needs
@@ -234,9 +233,9 @@ class AutoTrial(Node):
             for _ in range(self.coa_t):
                 self.update()
                 if self.ball_perceived() and reaction_time<0:
-                    reaction_time = self.step
+                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
                 if self.ball_reached() and reach_time<0:
-                    reach_time = self.step
+                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
 
             # SET TARGET
             print("<Auto Trials> Setting Target...")
@@ -247,29 +246,33 @@ class AutoTrial(Node):
             while (self.step - self.init_t - self.cue_t - self.coa_t) <= self.step_max:
                 self.update()
                 if self.ball_perceived() and reaction_time<0:
-                    reaction_time = self.step
+                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
                     if not self.action_enabled:
                         break
                 if self.ball_reached() and reach_time<0:
-                    reach_time = self.step
+                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
 
             # log data
             v = [reaction_time,reach_time,cue_center_dist,target_center_dist,cue_target_dist]
             self.log(v)
 
             # reset
+            print("<Auto Trials> Resetting", end="")
             self.reset()
-            time.sleep(1)
-            rclpy.spin_once(self) 
+            for _ in range(10):
+                print(".",end="")
+                time.sleep(0.5)
+                rclpy.spin_once(self) 
+            print("")
 
         print("<Auto Trials> Finished")
 
     def ball_perceived(self):
-        return self.agent.mu[0,c.needs_len+c.prop_len+c.prop_len]>0
+        return self.agent.mu[0,c.needs_len+c.prop_len+c.prop_len]>0.1
     
     def ball_reached(self):
         ball_coords = self.agent.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len]
-        return np.linalg.norm(ball_coords) < 1/16
+        return np.linalg.norm(ball_coords) < (1/16) and self.ball_perceived()
     
     def update(self):
         rclpy.spin_once(self)
