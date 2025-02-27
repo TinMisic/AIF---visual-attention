@@ -145,8 +145,8 @@ class Agent:
     
     def get_sensory_precisions(self, S):
         
-        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width)), self.mu[0])
-        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width)), S[2])
+        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width))*c.pi_vis, self.mu[0])
+        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width))*c.pi_vis, S[2])
 
         dim = c.needs_len+c.prop_len+c.latent_size+c.focus_len
 
@@ -285,7 +285,7 @@ class Agent:
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
         self.mu = np.clip(self.mu,-1,1) # clip mu values
-        self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],c.pi_vis,1) # clip mu_amp
+        self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],0.1,1) # clip mu_amp
         printf("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
 

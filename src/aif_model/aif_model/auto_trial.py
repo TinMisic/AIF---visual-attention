@@ -4,6 +4,7 @@ import torch
 import aif_model.config as c
 import aif_model.utils as utils
 import time
+import sys
 
 from camera_orientation.turn_cam import euler_to_quaternion, quaternion_to_euler
 from geometry_msgs.msg import Quaternion
@@ -41,7 +42,7 @@ def project(position):
 
 class AutoTrial(Node):
 
-    def __init__(self):
+    def __init__(self, num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act):
         super().__init__('automatic_trial_execution')
         self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 10)
         self.cam_orientation_subscriber = self.create_subscription(Quaternion, '/actual_cam_orientation', self.cam_orientation_callback, 1)
@@ -50,14 +51,14 @@ class AutoTrial(Node):
         self.bridge = CvBridge()
 
         # Trial variables
-        self.num_trials = 10
-        self.init_t = 10 # steps
-        self.cue_t = 100 # steps
-        self.coa_t = 100 # steps
-        self.step_max = 1000 # steps
-        self.endogenous = False
-        self.valid = False
-        self.action_enabled = False
+        self.num_trials = num_trials
+        self.init_t = init_t # steps
+        self.cue_t = cue_t # steps
+        self.coa_t = coa_t # steps
+        self.step_max = step_max # steps
+        self.endogenous = endo
+        self.valid = valid
+        self.action_enabled = act
         
         # init agent
         self.agent = None
@@ -70,9 +71,8 @@ class AutoTrial(Node):
 
         self.got_data = np.full((2),False)
 
-        now = datetime.datetime.now()
-        formatted_time = now.strftime("%Y-%m-%d_%H-%M")
-        self.log_name = f"act_inf_logs/experiments/log_{formatted_time}.csv"
+        formatted = "_".join(map(str,[num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act]))
+        self.log_name = f"act_inf_logs/experiments/log_{formatted}.csv"
 
     def reset(self):
         self.proprioceptive = np.zeros(c.prop_len)
@@ -195,12 +195,12 @@ class AutoTrial(Node):
             # INIT
             for _ in range(self.init_t):
                 self.update()
-                if self.ball_perceived() and not perceived:
-                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    perceived=True
-                if self.ball_reached() and not reached:
-                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    reached = True
+                # if self.ball_perceived() and not perceived:
+                #     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     perceived=True
+                # if self.ball_reached() and not reached:
+                #     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     reached = True
 
             # GENERATE CUES
             endo_cue, exo_cue, ball_true = self.generate_cues()
@@ -221,12 +221,12 @@ class AutoTrial(Node):
             print("<Auto Trials> Cueing...")
             for _ in range(self.cue_t):
                 self.update()
-                if self.ball_perceived() and not perceived:
-                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    perceived = True
-                if self.ball_reached() and not reached:
-                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    reached = True
+                # if self.ball_perceived() and not perceived:
+                #     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     perceived = True
+                # if self.ball_reached() and not reached:
+                #     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     reached = True
 
             # REMOVE CUE
             if self.endogenous: # set self.needs
@@ -238,12 +238,12 @@ class AutoTrial(Node):
             print("<Auto Trials> COA...")
             for _ in range(self.coa_t):
                 self.update()
-                if self.ball_perceived() and not perceived:
-                    reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    perceived = True
-                if self.ball_reached() and not reached:
-                    reach_time = self.step - self.init_t - self.cue_t - self.coa_t
-                    reached = True
+                # if self.ball_perceived() and not perceived:
+                #     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     perceived = True
+                # if self.ball_reached() and not reached:
+                #     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
+                #     reached = True
 
             # SET TARGET
             print("<Auto Trials> Setting Target...")
@@ -302,9 +302,59 @@ class AutoTrial(Node):
 
         self.step+=1
 
-def main(args=None):
-    rclpy.init(args=args)
-    auto = AutoTrial()
+def parse_custom_args():
+    parsed_args = {}
+    key = None
+    
+    for arg in sys.argv[1:]:
+        if arg.startswith("--"):  # Detect argument name
+            key = arg.lstrip("-")  # Remove leading '--'
+            parsed_args[key] = True  # Default to True if no value follows
+        elif key is not None:  # Detect argument value
+            parsed_args[key] = arg
+            key = None  # Reset key after storing value
+    
+    return parsed_args
+
+def parse_trial_args(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act):
+    dic = parse_custom_args()
+    if "trials" in dic.keys():
+        num_trials = int(dic["trials"])
+    if "init" in dic.keys():
+        init_t = int(dic["init"])
+    if "cue" in dic.keys():
+        cue_t = int(dic["cue"])
+    if "coa" in dic.keys():
+        coa_t = int(dic["coa"])
+    if "max" in dic.keys():
+        step_max = int(dic["max"])
+    if "endo" in dic.keys():
+        endo = dic["endo"] == "true"
+    if "valid" in dic.keys():
+        valid = dic["valid"] == "true"
+    if "act" in dic.keys():
+        act = dic["act"] == "true"
+    
+    return num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act
+
+
+def main():
+    rclpy.init(args=sys.argv)
+
+    # Default args
+    num_trials = 1
+    init_t = 10
+    cue_t = 50
+    coa_t = 100
+    step_max = 1000
+    endo = True
+    valid = True
+    act = False
+
+    num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act = parse_trial_args(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act)
+
+    print(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act)
+    auto = AutoTrial(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act)
     auto.wait_data()
     #rclpy.spin(auto)
     auto.destroy_node()
