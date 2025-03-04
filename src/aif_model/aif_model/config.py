@@ -30,7 +30,7 @@ foveation_sigma = 2
 attn_damper1 = 1e-2
 attn_damper2 = 1e-3
 dt = 0.4 # 0.4
-a_max = 1.0
+a_max = 2.0
 
 printing = False
 

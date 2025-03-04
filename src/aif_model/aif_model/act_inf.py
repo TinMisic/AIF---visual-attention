@@ -20,7 +20,7 @@ class Inference(Node):
 
     def __init__(self):
         super().__init__('active_inference')
-        self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 10)
+        self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 1)
         self.cam_orientation_subscriber = self.create_subscription(Quaternion, '/actual_cam_orientation', self.cam_orientation_callback, 1)
         self.image_subscriber = self.create_subscription(Image,'cam/camera1/image_raw', self.image_callback, 1)
         self.needs_subscriber = self.create_subscription(Float32MultiArray, '/needs', self.needs_callback, 1)
@@ -111,7 +111,7 @@ class Inference(Node):
         self.fe_log.append(fe)
         self.err_log.append(err)
 
-        # self.publish_action(action)
+        self.publish_action(action)
 
         if self.flag==False:
             self.counter = 0

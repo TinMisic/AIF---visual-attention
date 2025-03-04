@@ -83,6 +83,7 @@ class CamOrientationControl(Node):
 
     def cam_orientation_callback(self, msg):
         self.desired_position = msg
+        print("New desired position",msg)
         self.calculate_direction()
         self.moving = True
 
@@ -104,6 +105,7 @@ class CamOrientationControl(Node):
             if np.linalg.norm(error)> np.deg2rad(1):
                 new_position = self.add_step(step)
                 self.set_cam_orientation(new_position)
+                self.moving = False
             else:
                 self.set_cam_orientation(self.desired_position)
                 self.direction = (0,0)
@@ -130,6 +132,7 @@ class CamOrientationControl(Node):
         state.pose.orientation.y = orientation.y
         state.pose.orientation.z = orientation.z
         state.pose.orientation.w = orientation.w
+        print("Settng cam orientation to ",orientation)
 
         req = SetEntityState.Request()
         req._state = state

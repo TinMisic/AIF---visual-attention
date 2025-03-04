@@ -44,7 +44,7 @@ class AutoTrial(Node):
 
     def __init__(self, num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act):
         super().__init__('automatic_trial_execution')
-        self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 10)
+        self.cam_orientation_publisher = self.create_publisher(Quaternion, '/cam_orientation_setter', 1)
         self.cam_orientation_subscriber = self.create_subscription(Quaternion, '/actual_cam_orientation', self.cam_orientation_callback, 1)
         self.image_subscriber = self.create_subscription(Image,'cam/camera1/image_raw', self.image_callback, 1)
         self.gazebo_client = self.create_client(SetEntityState, '/sim/set_entity_state')
@@ -125,7 +125,7 @@ class AutoTrial(Node):
         exo_cue = np.array([-1.0,0.0,1.0])
         ball_true = np.array([-1.0,0.0,1.0])
 
-        exo_cue = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])
+        exo_cue = np.array([4,np.random.random(1)[0]*6 - 3, np.random.random(1)[0]*6 - 2])
         projection = project(exo_cue)
         normalized  = utils.normalize(projection)
         endo_cue[0] = normalized[0]
@@ -176,6 +176,7 @@ class AutoTrial(Node):
     def trials(self):
         print("<Auto Trials> Starting trials")
         for i in range(self.num_trials):
+            self.reset_cam()
             
             # initialize logging variables
             reaction_time = -1
@@ -252,7 +253,11 @@ class AutoTrial(Node):
             # TARGET
             print("<Auto Trials> Perception...")
             while (self.step - self.init_t - self.cue_t - self.coa_t) <= self.step_max:
-                self.update()
+                try:
+                    self.update()
+                except:
+                    print("<Auto Trials> Failed trial")
+                    break
                 if self.ball_perceived() and not perceived:
                     reaction_time = self.step - self.init_t - self.cue_t - self.coa_t
                     perceived = True
@@ -261,6 +266,7 @@ class AutoTrial(Node):
                 if self.ball_reached() and not reached:
                     reach_time = self.step - self.init_t - self.cue_t - self.coa_t
                     reached = True
+                    break
 
             if not perceived:
                 reaction_time = self.step_max
@@ -287,7 +293,7 @@ class AutoTrial(Node):
     
     def ball_reached(self):
         ball_coords = self.agent.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len]
-        return np.linalg.norm(ball_coords) < (1/16) and self.ball_perceived()
+        return np.linalg.norm(ball_coords) < (2/16) and self.ball_perceived()
     
     def update(self):
         rclpy.spin_once(self)

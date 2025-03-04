@@ -82,8 +82,8 @@ class Agent:
         targets = utils.pixels_to_angles(targets) # convert to angles
 
         result = np.zeros_like(targets) + self.mu[0,c.needs_len:c.needs_len+c.prop_len]
-        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
-            result += targets # add relative target angle to global camera angle
+        #if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
+        result += targets # add relative target angle to global camera angle
 
         return result
     
@@ -204,8 +204,9 @@ class Agent:
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             component2[-3] = c.attn_damper2 * component2[-3]
             if i==2:
-                printf("c1", component1)
-                printf("c2", component2)
+                # printf("c1", component1)
+                # printf("c2", component2)
+                pass
             total += component1 + component2
 
         return total, component1, component2
@@ -233,11 +234,11 @@ class Agent:
         bottom_up1, _, _ = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1, _, _ = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        printf("\nmu_dot[0]>")
+        # printf("\nmu_dot[0]>")
         printf("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
-        printf("generative", generative, np.linalg.norm(generative))
+        # printf("generative", generative, np.linalg.norm(generative))
         # printf("backward", backward[4:6], np.linalg.norm(backward))
-        printf("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
+        # printf("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
         # printf("top_down0", top_down0)
 
         # printf("\nmu_dot[1]>")
@@ -257,19 +258,20 @@ class Agent:
         """
         e_s = [np.concatenate([E_s[0],np.zeros(self.belief_dim - c.needs_len)]),np.concatenate([E_s[1],np.zeros(self.belief_dim - c.prop_len)]), torch.mean(E_s[2],dim=(0,1))]
         e_prop = likelihood["prop"].dot(self.G_p)
+        printf("eprop",e_prop)
 
         d_mu_lkh_prop = -c.dt * e_prop
 
         attn, c1, c2 = self.attention(Pi, dPi_dS, e_s)
-        printf("attn c1", c1)
-        printf("attn c2", c2)
+        # printf("attn c1", c1)
+        # printf("attn c2", c2)
         focus = np.zeros((1,2))
         focus[0] = attn[-2:]
         focus = (focus+1)*16
-        printf("focus",focus)
+        # printf("focus",focus)
         attn_comp = utils.pixels_to_angles(focus)[0]
 
-        self.a_dot = d_mu_lkh_prop + attn_comp #d_mu_lkh_prop # TODO: add + attn_comp
+        self.a_dot = d_mu_lkh_prop + attn_comp#d_mu_lkh_prop#attn_comp #d_mu_lkh_prop 
         printf("d_mu_lkh_prop", d_mu_lkh_prop)
         printf("attn_comp", attn_comp)
         printf("a_dot",self.a_dot)
@@ -284,7 +286,7 @@ class Agent:
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
-        self.mu = np.clip(self.mu,-1,1) # clip mu values
+        # self.mu = np.clip(self.mu,-1,1) # clip mu values
         self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],0.1,1) # clip mu_amp
         printf("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
