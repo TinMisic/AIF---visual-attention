@@ -12,6 +12,8 @@ setup(
         # Install the resource folder to the share directory
         (os.path.join('share', package_name, 'resource'), glob('resource/*')),
         (os.path.join('share', package_name), ['package.xml']),
+        # Install launch folder to the share directory
+        (os.path.join('share', package_name, 'launch'), glob('launch/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Package used to change camera orientation in gazebo</description>
   <maintainer email="misic.tin@gmail.com">tin</maintainer>
-  <license>Apache-2.0</license>
+  <license>Hippocratic License HL3-CL-MEDIA-MIL-SV</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>gazebo_msgs</exec_depend>
