@@ -15,21 +15,19 @@ beta = 2 # for betaVAE
 # Agent config
 package_name = "aif_model"
 vae_path = "vae_lat8_b2_e5_nb256.pt" # vae-disentangled_state_dict_scaled.pt
-focus_samples = ["focus0.csv","focus1.csv"]#,"focus2.csv","focus3.csv"]
 n_orders = 2 # orders of belief
-num_intentions = 2
+num_intentions = 2 # number of possible objects
 prop_len = 2 # size of proprioceptive belief
 needs_len = 3 # size of needs/cueing belief
 focus_len = 3 # size of focus belief: amplitude, x_position, y_position
-k = 0.06
-alpha = 0.5
-pi_prop = 0.5
-pi_need = 0.5
-pi_vis =  2#7e-3
+k = 0.06 # intention error gain
+pi_prop = 0.5 # proprioceptive precision baseline
+pi_need = 0.5 # sensory cue precision baseline
+pi_vis =  2 # visual precision baseline
 foveation_sigma = 2
 attn_damper1 = 1e-2
 attn_damper2 = 1e-3
-dt = 0.4 # 0.4
+dt = 0.4 
 a_max = 2.0
 
 printing = False

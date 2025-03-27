@@ -15,9 +15,11 @@ from gazebo_msgs.srv import SetEntityState
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-import datetime
 
 def project(position):
+    '''
+    Project 3D position onto image coordinates
+    '''
     f = c.width / (2 * np.tan(c.horizontal_fov/2))
     cent = (c.width/2, c.height/2) # get center point
     K = np.array([[f, 0, cent[0]],
@@ -41,6 +43,9 @@ def project(position):
     return normalized[0:2]
 
 class AutoTrial(Node):
+    '''
+    Auto trial node
+    '''
 
     def __init__(self, num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act):
         super().__init__('automatic_trial_execution')
@@ -73,8 +78,12 @@ class AutoTrial(Node):
 
         formatted = "_".join(map(str,[num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act]))
         self.log_name = f"act_inf_logs/experiments/log_{formatted}.csv"
+        self.target_dist = 0
 
     def reset(self):
+        '''
+        Reset for next trial
+        '''
         self.proprioceptive = np.zeros(c.prop_len)
         self.visual = np.zeros((1,c.channels,c.height,c.width))
         self.needs = np.zeros((c.needs_len))
@@ -84,6 +93,9 @@ class AutoTrial(Node):
         self.reset_cam()
 
     def wait_data(self):
+        '''
+        Wait for data until beginning
+        '''
         print("<Auto Trials> Waiting for data...")
         while not self.got_data.all()==True:
             rclpy.spin_once(self)
@@ -110,6 +122,9 @@ class AutoTrial(Node):
             self.get_logger().error('Error processing image: {0}'.format(e))
 
     def publish_action(self, action):
+        '''
+        Action publisher
+        '''
         desired = self.proprioceptive + c.dt * action
         q = euler_to_quaternion(0,np.deg2rad(desired[0]),np.deg2rad(desired[1]))
 
@@ -117,15 +132,29 @@ class AutoTrial(Node):
         self.cam_orientation_publisher.publish(msg)
 
     def log(self, v):
+        '''Log given values'''
         with open(self.log_name,"a") as l:
             l.write(','.join(map(str, v))+"\n")
 
+    def log2(self):
+        '''Log perceived target position and covert focus'''
+        targets = self.agent.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len] # grab visual positions of objects
+        focus = self.agent.mu[0,-2:]
+        targets = utils.denormalize(targets) # convert from range [-1,1] to [0,width]
+        focus = utils.denormalize(focus)
+        concat = np.concatenate((targets,focus,))
+        with open(self.log_name,"a") as l:
+            l.write(','.join(map(str, concat))+"\n")
+
     def generate_cues(self):
+        '''
+        Generate cues and target position
+        '''
         endo_cue = np.ones(3)
         exo_cue = np.array([-1.0,0.0,1.0])
         ball_true = np.array([-1.0,0.0,1.0])
 
-        exo_cue = np.array([4,np.random.random(1)[0]*6 - 3, np.random.random(1)[0]*6 - 2])
+        exo_cue = np.array([4,np.random.random(1)[0]*4 - 2, np.random.random(1)[0]*4 - 1])#np.array([4,-1.5,1])#
         projection = project(exo_cue)
         normalized  = utils.normalize(projection)
         endo_cue[0] = normalized[0]
@@ -137,9 +166,13 @@ class AutoTrial(Node):
             # mirror exo_cue
             ball_true = np.array([4,-exo_cue[1], 2 - exo_cue[2]])
 
+        self.target_dist = np.linalg.norm(project(ball_true)-np.array([16,16]))
         return endo_cue, exo_cue, ball_true
 
     def move_ball(self, position):
+        '''
+        Translate sphere to given position
+        '''
         state = EntityState()
         state.name = "red_sphere"
 
@@ -154,6 +187,9 @@ class AutoTrial(Node):
         rclpy.spin_until_future_complete(self, future) 
 
     def reset_cam(self):
+        '''
+        Reset camera to home position
+        '''
         state = EntityState()
         state.name = "camera_model"
 
@@ -174,6 +210,10 @@ class AutoTrial(Node):
         rclpy.spin_until_future_complete(self, future)  # Wait for the result
 
     def trials(self):
+        '''
+        Begin trials
+        '''
+
         print("<Auto Trials> Starting trials")
         for i in range(self.num_trials):
             self.reset_cam()
@@ -286,16 +326,25 @@ class AutoTrial(Node):
                 rclpy.spin_once(self) 
             print("")
 
-        print("<Auto Trials> Finished")
+        print("<Auto Trials> Finished",self.target_dist)
 
     def ball_perceived(self):
+        '''
+        True if sphere is perceived (presence greater than 0.1)
+        '''
         return self.agent.mu[0,c.needs_len+c.prop_len+c.prop_len]>0.1
     
     def ball_reached(self):
+        '''
+        True if sphere is focused on in the center of the image
+        '''
         ball_coords = self.agent.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len]
         return np.linalg.norm(ball_coords) < (2/16) and self.ball_perceived()
     
     def update(self):
+        '''
+        One inference step
+        '''
         rclpy.spin_once(self)
         # get sensory input
         S =  self.needs, self.proprioceptive, self.visual
@@ -307,8 +356,12 @@ class AutoTrial(Node):
             self.publish_action(action)
 
         self.step+=1
+        # self.log2()
 
 def parse_custom_args():
+    '''
+    Parse command line arguments
+    '''
     parsed_args = {}
     key = None
     
@@ -323,6 +376,9 @@ def parse_custom_args():
     return parsed_args
 
 def parse_trial_args(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act):
+    """
+    Argument parsing
+    """
     dic = parse_custom_args()
     if "trials" in dic.keys():
         num_trials = int(dic["trials"])
@@ -362,7 +418,6 @@ def main():
     print(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act)
     auto = AutoTrial(num_trials, init_t, cue_t, coa_t, step_max, endo, valid, act)
     auto.wait_data()
-    #rclpy.spin(auto)
     auto.destroy_node()
     rclpy.shutdown()
 

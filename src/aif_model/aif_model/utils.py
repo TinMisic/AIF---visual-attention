@@ -6,10 +6,12 @@ from PIL import Image
 import torchvision
 import aif_model.config as c
 import cv2 as cv
-import matplotlib.pyplot as plt
 
 class ImageDataset(data.Dataset):
-    '''Image dataset class'''
+    '''
+    Image dataset class
+    '''
+
     def __init__(self, images_root, centroids_path, size = 200000):
         self.imgPaths = list(Path(images_root).rglob('img*.jpg'))
         self.centroids = np.genfromtxt(centroids_path, delimiter=',')
@@ -43,7 +45,9 @@ class ImageDataset(data.Dataset):
         return sample, lat_rep
     
 class IntentionDataset(data.Dataset):
-    '''Intention dataset class'''
+    '''
+    Intention dataset class
+    '''
 
     def __init__(self, data_path):
         datas = np.loadtxt(data_path, delimiter=',')
@@ -60,7 +64,10 @@ class IntentionDataset(data.Dataset):
         return self.X[idx], self.y[idx]
     
 def split_dataset(dataset, percent):
-    '''Split dataset in train/test set and in batches'''
+    '''
+    Split dataset in train/test set and in batches
+    '''
+
     length = int(dataset.__len__()*percent)
     train_set, test_set = data.random_split(dataset, (length, dataset.__len__() - length))
     train_gen = data.DataLoader(train_set, batch_size=c.n_batch, shuffle=True, num_workers=4)
@@ -69,16 +76,25 @@ def split_dataset(dataset, percent):
     return train_gen, test_gen
 
 def kl_divergence(p_m, p_v, q_m, log_q_v):
-    '''Kullback–Leibler divergence'''
+    '''
+    Kullback–Leibler divergence
+    '''
+
     return torch.mean(0.5 * torch.sum(torch.log(p_v) - log_q_v + (log_q_v.exp() + (q_m - p_m) ** 2) / p_v - 1, dim=1), dim=0)
 
 def shift_rows(matrix, n):
-    '''Shifts rows down by n rows'''
+    '''
+    Shifts rows down by n rows
+    '''
+
     shifted_matrix = np.concatenate((matrix[-n:], matrix[:-n]), axis=0)
     return shifted_matrix
 
 def pixels_to_angles(coordinates):
-    """Translates pixel coordinates into angles in radians"""
+    """
+    Translates pixel coordinates into angles in radians
+    """
+
     f = c.width / (2 * np.tan(c.horizontal_fov/2))
     
     cent = (c.width/2, c.height/2) # get center point
@@ -93,40 +109,54 @@ def pixels_to_angles(coordinates):
     return np.vstack((pitch, yaw)).T # first pitch then yaw
 
 def normalize(x):
-    '''Normalize angles'''
+    '''
+    Normalize angles
+    '''
+
     return x / c.width * 2 - 1
 
 def denormalize(x):
-    '''Denormalize angles'''
+    '''
+    Denormalize angles
+    '''
+
     return (x + 1) / 2 * c.width
 
 def add_gaussian_noise(array):
-    '''Adds gaussian noise to given array'''
+    '''
+    Adds gaussian noise to given array
+    '''
+
     sigma = c.noise ** 0.5
     return array + np.random.normal(0, sigma, np.shape(array))
 
 def display_vectors(img, vectors):
-    '''Displays vectors on image'''
-    h,w,_ = img.shape
+    '''
+    Displays vectors on image
+    '''
 
-    # print("vectors",vectors)
+    focused=img
+    try:
+        h,w,_ = img.shape
 
-    red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
-    blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
-    focus = (w//2 + int(vectors[2,0]*w/2),h//2+int(vectors[2,1]*h/2))
+        red = (w//2 + int(vectors[0,0]*w/2),h//2+int(vectors[0,1]*h/2))
+        blue = (w//2 + int(vectors[1,0]*w/2),h//2+int(vectors[1,1]*h/2))
+        focus = (w//2 + int(vectors[2,0]*w/2),h//2+int(vectors[2,1]*h/2))
 
-    # print("red",red)
-    # print("blue",blue)
-    # print("focus",focus)
+        arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(1,0,0),2)
+        # arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
 
-    arrowed = cv.arrowedLine(img.copy(), (w//2,h//2),red,(1,0,0),2)
-    # arrowed = cv.arrowedLine(arrowed, (w//2,h//2),blue,(0,0,1),2)
-
-    focused = cv.circle(arrowed.copy(), focus, 5, (0,0.83,0), -1)
+        focused = cv.circle(arrowed.copy(), focus, 5, (0,0.83,0), -1)
+    except:
+        print("Auto Trials: Vector display fail.")
 
     return focused
 
 def show_SP(S, P, vectors):
+    '''
+    Show visual sensory input and visual prediction with vectors indicating sphere belief
+    '''
+
     f = 15
     tmp_S = np.transpose(S[2].detach().squeeze().numpy(),(1,2,0))
     tmp_S = cv.resize(tmp_S,(0,0),fx=f,fy=f)
@@ -137,9 +167,12 @@ def show_SP(S, P, vectors):
     combined = cv.cvtColor(combined,cv.COLOR_RGB2BGR)
     cv.imshow("S,P",combined)
     cv.waitKey(1)
-    # cv2.destroyAllWindows()
 
 def gaussian_2d(n, center_x, center_y, sigma):
+    '''
+    Generate 2D gaussian function for range -1 to 1
+    '''
+
     x = np.linspace(-1, 1, n)
     y = np.linspace(-1, 1, n)
     x, y = np.meshgrid(x, y)
@@ -152,6 +185,10 @@ def gaussian_2d(n, center_x, center_y, sigma):
     return gaussian_matrix, x_deriv, y_deriv
 
 def log_2d(n, center_x,center_y, amplitude):
+    '''
+    Generate 2D logarithmic function for range -1 to 1
+    '''
+
     x = np.linspace(-1, 1, n)
     y = np.linspace(-1, 1, n)
     x, y = np.meshgrid(x, y)
@@ -167,6 +204,9 @@ def log_2d(n, center_x,center_y, amplitude):
     return log_matrix, x_deriv, y_deriv, amp_deriv
 
 def pi_foveate(original, mu):
+    '''
+    Generate visual precision foveated around covert attention center
+    '''
 
     amplitude_idx = c.needs_len+c.prop_len+c.latent_size
     center_x_idx = amplitude_idx + 1
@@ -184,9 +224,17 @@ def pi_foveate(original, mu):
     return  pi, derivative, dPi_dmu1
 
 def pi_uniform(original, mu):
+    '''
+    Uniform visual precision
+    '''
+
     return original, np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size)), np.zeros((c.height,c.width,c.needs_len+c.prop_len+c.latent_size+c.focus_len))
 
 def find_red_centroid(image):
+    '''
+    Find centroid of biggest red object in the image
+    '''
+
     # Convert to HSV color space
     hsv = cv.cvtColor(image, cv.COLOR_RGB2HSV)
     
@@ -220,6 +268,9 @@ def find_red_centroid(image):
 
 
 def pi_presence(original, img):
+    '''
+    Foveate around biggest red object
+    '''
     img = np.transpose(img.detach().squeeze().numpy(),(1,2,0))
     img = img * 256 # scale
     r_x, r_y = find_red_centroid(img)

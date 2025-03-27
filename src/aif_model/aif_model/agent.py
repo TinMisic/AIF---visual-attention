@@ -4,25 +4,29 @@ import aif_model.networks as networks
 import aif_model.utils as utils
 import torch
 import numpy as np
-import cv2
 from ament_index_python.packages import get_package_share_directory
 import os
 from scipy.special import softmax
 
 def printf(*args, **kwargs):
+    '''
+    Debugging print functions
+    '''
+
     if c.printing: print(*args, **kwargs)
 
 class Agent:
-    """
+    '''
     Active Inference agent
-    """
+    '''
+
     def __init__(self):
 
         # Load networks
         package_share_directory = get_package_share_directory(c.package_name)
         vae_path = os.path.join(package_share_directory, 'resource', c.vae_path)
 
-        self.vectors = np.zeros((3,2)) # vectors of target locations from center, and focus point
+        self.vectors = np.zeros((3,2)) # vectors of target locations from center, and focus point, used in displaying
 
         self.vae  = vae.VAE( # VAE network
         latent_dim=c.latent_size,
@@ -30,7 +34,7 @@ class Agent:
         decoder=networks.Decoder(out_chan=c.channels, latent_dim=c.latent_size))
         self.vae.load(vae_path)
 
-        self.belief_dim = c.needs_len + c.prop_len + c.latent_size + c.focus_len # needs, proprioceptive belief, visual belief, visual focus 
+        self.belief_dim = c.needs_len + c.prop_len + c.latent_size + c.focus_len # symbolic_cue(need), proprioceptive belief, visual belief, visual focus 
 
         # Initialization of variables
         self.mu = np.zeros((c.n_orders, self.belief_dim), dtype="float32") 
@@ -41,8 +45,6 @@ class Agent:
 
         self.E_i = np.zeros((c.num_intentions, self.belief_dim))
 
-        self.alpha = np.array([1, 1, 1]) # needs, proprioceptive, visual [1, c.alpha, 1-c.alpha]
-
         self.beta_index = 0
         weights = [] 
         for i in range(c.num_intentions):
@@ -51,15 +53,15 @@ class Agent:
 
         self.beta_weights = weights
 
-        # Generative models (simple)
+        # Generative models (trivial/simple)
         self.G_p = utils.shift_rows(np.eye(self.belief_dim, c.prop_len),c.needs_len)
 
         self.G_n = np.eye(self.belief_dim, c.needs_len)
 
     def get_p(self):
-        """
+        '''
         Get predicitons
-        """
+        '''
         # Visual
         input_, output = self.vae.predict_visual(torch.tensor(self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.latent_size]).unsqueeze(0))
         # Proprioceptive
@@ -72,6 +74,9 @@ class Agent:
         return P, [input_, output]
     
     def get_prop_intentions(self):
+        '''
+        Get proprioceptive intentions
+        '''
         targets = np.zeros((c.num_intentions,c.prop_len))
         
         targets = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+c.prop_len*c.num_intentions] # grab visual positions of objects
@@ -82,20 +87,23 @@ class Agent:
         targets = utils.pixels_to_angles(targets) # convert to angles
 
         result = np.zeros_like(targets) + self.mu[0,c.needs_len:c.needs_len+c.prop_len]
-        #if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
-        result += targets # add relative target angle to global camera angle
+        if self.mu[0, c.needs_len+c.prop_len+c.prop_len]>0: # if object visible in image
+            result += targets # add relative target angle to global camera angle
 
         return result
     
     def get_vis_intentions(self):
-        red_cue = self.mu[0,2]
-        red_exist = self.mu[0, c.needs_len+c.prop_len+c.prop_len]
+        '''
+        Get visual intentions
+        '''
+        red_cue = self.mu[0,2] # grab cue strength
+        red_exist = self.mu[0, c.needs_len+c.prop_len+c.prop_len] # red sphere existence
         sm = softmax((red_cue,red_exist))
         
         old = self.mu[0,c.needs_len+c.prop_len:c.needs_len+c.prop_len+2]
         cue = self.mu[0,:2]
         ending = self.mu[0,c.needs_len+c.prop_len+2:c.needs_len+c.prop_len+c.latent_size]
-        mix = sm[0]*old + sm[1]*cue
+        mix = sm[0]*old + sm[1]*cue # mix visual belief and cue 
 
         result = np.zeros((2,c.latent_size))
         result[0]=np.concatenate((mix,ending))
@@ -103,13 +111,16 @@ class Agent:
         return result
 
     def get_focus_intentions(self):
+        '''
+        Get focus intentions
+        '''
         result = np.zeros((c.num_intentions,c.focus_len))
         result[:,1:] = self.mu[0,-2:] # previous focus belief
         if self.mu[0,2]>0.1:
             result[:,1:] = self.mu[0,:2]
 
         amp = self.mu[0,c.needs_len+c.prop_len+c.latent_size]
-        result[:,0] = 0.1*self.mu[0,2] - 0.05*amp #TODO: adjust factors
+        result[:,0] = 0.1*self.mu[0,2] - 0.05*amp # decay
 
         printf("Focus intentions:", result)
 
@@ -144,9 +155,12 @@ class Agent:
         return self.mu[1] - self.E_i
     
     def get_sensory_precisions(self, S):
+        '''
+        Get sensory precisions
+        '''
         
-        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width))*c.pi_vis, self.mu[0])
-        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width))*c.pi_vis, S[2])
+        pi_vis, dPi_dmu0_vis, dPi_dmu1_vis = utils.pi_foveate(np.ones((c.height,c.width))*c.pi_vis, self.mu[0]) # covert attention
+        pi_vis_s, dPi_dS0, dPi_dS1 = utils.pi_presence(np.ones((c.height,c.width))*c.pi_vis, S[2]) # bottom-up object presence attention
 
         dim = c.needs_len+c.prop_len+c.latent_size+c.focus_len
 
@@ -168,7 +182,10 @@ class Agent:
 
         return Pi, dPi_dmu0, dPi_dmu1, dPi_dS
     
-    def get_intention_precisions(self, S):
+    def get_intention_precisions(self):
+        '''
+        Get intention precisions
+        '''
         self.beta_index = np.argmax(self.mu[0,2:c.needs_len])
         self.beta = [np.ones(self.belief_dim)*1e-10] * c.num_intentions
         self.beta[self.beta_index] = self.beta_weights[self.beta_index]
@@ -185,17 +202,20 @@ class Agent:
         Get likelihood components
         """
         lkh = {}
-        lkh['need'] = self.alpha[0] * Pi[0] * E_s[0].dot(self.G_n.T)
+        lkh['need'] = Pi[0] * E_s[0].dot(self.G_n.T)
 
-        lkh['prop'] = self.alpha[1] * Pi[1] * E_s[1].dot(self.G_p.T)
+        lkh['prop'] = Pi[1] * E_s[1].dot(self.G_p.T)
 
-        lkh['vis'] = self.alpha[2] * self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
+        lkh['vis'] = self.vae.get_grad(*grad_v, torch.from_numpy(Pi[2])*E_s[2])
         lkh['vis'] = np.concatenate((np.zeros((c.needs_len+c.prop_len)),lkh['vis'],np.zeros(c.focus_len))) 
 
         return lkh
 
 
     def attention(self, precision, derivative, error):
+        '''
+        Attention components in free-energy update
+        '''
         total = np.zeros(self.belief_dim)
         for i in range(len(precision)):
             component1 = 0.5 * np.mean(np.expand_dims(1/precision[i], axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
@@ -203,10 +223,7 @@ class Agent:
             component1[-2:] = c.attn_damper1 * component1[-2:]
             component2 = -0.5 * np.sum(np.expand_dims(error[i]**2, axis=-1) * derivative[i], axis=tuple(range(derivative[i].ndim - 1)))
             component2[-3] = c.attn_damper2 * component2[-3]
-            if i==2:
-                # printf("c1", component1)
-                # printf("c2", component2)
-                pass
+            
             total += component1 + component2
 
         return total, component1, component2
@@ -228,29 +245,19 @@ class Agent:
         generative = lkh['prop'] + lkh['need'] + lkh['vis']
         backward = - c.k * forward_i
 
+        # Attention calculation
         bottom_up0, _, _ = self.attention(Pi,dPi_dmu0,e_s)
         top_down0, _, _ = self.attention(Gamma,dGamma_dmu0,E_mu)
 
         bottom_up1, _, _ = self.attention(Pi, dPi_dmu1,[0]*3) # No sensory error for second order
         top_down1, _, _ = self.attention(Gamma,dGamma_dmu1,[0]*c.num_intentions) # No intention error for second order
 
-        # printf("\nmu_dot[0]>")
         printf("self.mu[1]", self.mu[1], np.linalg.norm(self.mu[1]))
-        # printf("generative", generative, np.linalg.norm(generative))
-        # printf("backward", backward[4:6], np.linalg.norm(backward))
-        # printf("bottom_up0", bottom_up0, np.linalg.norm(bottom_up0))
-        # printf("top_down0", top_down0)
-
-        # printf("\nmu_dot[1]>")
-        # printf("-forward_i", -forward_i[4:6], np.linalg.norm(-forward_i))
-        # printf("bottom_up1",bottom_up1)
-        # printf("top_down1", top_down1)
 
         self.mu_dot[0] = self.mu[1] + generative + backward + bottom_up0 + top_down0 #
         self.mu_dot[1] = -forward_i + bottom_up1 + top_down1
         printf("mu_dot0 before clip:",self.mu_dot[0], np.linalg.norm(self.mu_dot[0]))
         self.mu_dot = np.clip(self.mu_dot,-0.25,0.25) # clip mu update
-
 
     def get_a_dot(self, likelihood, Pi, dPi_dS, E_s):
         """
@@ -263,15 +270,12 @@ class Agent:
         d_mu_lkh_prop = -c.dt * e_prop
 
         attn, c1, c2 = self.attention(Pi, dPi_dS, e_s)
-        # printf("attn c1", c1)
-        # printf("attn c2", c2)
         focus = np.zeros((1,2))
         focus[0] = attn[-2:]
-        focus = (focus+1)*16
-        # printf("focus",focus)
+        focus = utils.denormalize(focus)
         attn_comp = utils.pixels_to_angles(focus)[0]
 
-        self.a_dot = d_mu_lkh_prop + attn_comp#d_mu_lkh_prop#attn_comp #d_mu_lkh_prop 
+        self.a_dot = d_mu_lkh_prop + attn_comp # both components 
         printf("d_mu_lkh_prop", d_mu_lkh_prop)
         printf("attn_comp", attn_comp)
         printf("a_dot",self.a_dot)
@@ -280,13 +284,11 @@ class Agent:
         """
         Integrate with gradient descent
         """
-        if (self.mu_dot == np.nan).any():
-            printf("nan in mu_dot",self.mu_dot)
-            raise Exception("nan in mu_dot")
+        
         # Update belief
         self.mu[0] += c.dt * self.mu_dot[0]
         self.mu[1] += c.dt * self.mu_dot[1]
-        # self.mu = np.clip(self.mu,-1,1) # clip mu values
+
         self.mu[:,c.needs_len+c.prop_len+c.latent_size] = np.clip(self.mu[:,c.needs_len+c.prop_len+c.latent_size],0.1,1) # clip mu_amp
         printf("self.mu[0]",self.mu[0])
         self.vectors[2,:] = self.mu[0,-2:]
@@ -299,13 +301,9 @@ class Agent:
         """
         Initialize belief
         """
-        visual_state =self.vae.predict_latent(visual.squeeze()).detach().squeeze().numpy()
+        visual_state =self.vae.predict_latent(visual.squeeze()).detach().squeeze().numpy() # use VAE encoder to encode initial visual belief
         focus = np.array([c.pi_vis,0,0])
 
-        # package_share_directory = get_package_share_directory(c.package_name)
-        # for f_name in [os.path.join(package_share_directory, 'resource', x) for x in c.focus_samples]:
-        #     focus_samples = np.loadtxt(f_name,delimiter=",",dtype="float32")
-        #     self.focus_samples.append(focus_samples)
         self.mu[0] = np.concatenate((needs, prop, visual_state,focus)) # initialize with beliefs about needs, proprioceptive and visual state
         printf("mu initialized to:",self.mu[0])
 
@@ -317,11 +315,6 @@ class Agent:
         """
         Run an inference step
         """
-        # TODO: remove
-        if (self.mu == np.nan).any():
-            printf("nan in mu",self.mu)
-            printf("S",S)
-            raise Exception("nan in mu")
         
         printf("mu:",self.mu[0])
         
@@ -341,7 +334,7 @@ class Agent:
         Pi, dPi_dmu0, dPi_dmu1, dPi_dS = self.get_sensory_precisions(S)
 
         # Get intention precisions
-        Gamma, dGamma_dmu0, dGamma_dmu1 = self.get_intention_precisions(S)
+        Gamma, dGamma_dmu0, dGamma_dmu1 = self.get_intention_precisions()
 
         # Get likelihood components
         likelihood = self.get_likelihood(E_s, grad_v, Pi)
@@ -350,7 +343,7 @@ class Agent:
         self.get_mu_dot(likelihood, E_s, E_mu, Pi, Gamma, dPi_dmu0, dGamma_dmu0, dPi_dmu1, dGamma_dmu1)
 
         # Get action update
-        self.get_a_dot(likelihood, Pi, dPi_dS, E_s) # E_s[0] * self.pi_s[0] * self.alpha[0]
+        self.get_a_dot(likelihood, Pi, dPi_dS, E_s) # E_s[0] * self.pi_s[0] 
 
         # Update
         self.integrate()
@@ -358,4 +351,4 @@ class Agent:
         # Show visual sensory and predicted data
         utils.show_SP(S, P, self.vectors)
 
-        return self.a, np.linalg.norm(likelihood["vis"]), np.linalg.norm(E_s[2])
+        return self.a
